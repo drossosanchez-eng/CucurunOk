@@ -41,13 +41,18 @@ let modoFiesta = false, lucesFiesta;
 
 let textoPuntos, textoBest, textoNivel, textoCopas, textoSuperCucu, tweenSuperCucu;
 let gameOver = false, juegoIniciado = false;
+let handlerSalto = null;
 
 function obtenerDatos() {
     let d = localStorage.getItem('cucu_user_data');
     if (!d) {
         return { highScore: 0, adsVistosNinja: 0, adsVistosFiesta: 0, esVip: false, skinEquipado: 'cucu_espana' };
     }
-    return JSON.parse(d);
+    try {
+        return JSON.parse(d);
+    } catch(e) {
+        return { highScore: 0, adsVistosNinja: 0, adsVistosFiesta: 0, esVip: false, skinEquipado: 'cucu_espana' };
+    }
 }
 
 let datosUsuario = obtenerDatos();
@@ -256,7 +261,7 @@ function create() {
         fontSize: '32px', fill: '#facc15', fontFamily: 'Arial Black', stroke: '#000000', strokeThickness: 6
     }).setOrigin(0.5).setDepth(20).setVisible(false);
 
-    this.input.on('pointerdown', () => {
+    handlerSalto = () => {
         AudioFX.init();
         if (gameOver) return;
 
@@ -266,18 +271,21 @@ function create() {
             AudioFX.salto();
             generarEfectoHierba(cucurella.x, cucurella.y + 35, this);
         }
-    }, this);
+    };
+
+    this.input.on('pointerdown', handlerSalto, this);
 
     mostrarTiendaSkins(this);
 }
 
 function mostrarTiendaSkins(scene) {
     datosUsuario = obtenerDatos();
+    let recordActual = Number(datosUsuario.highScore) || 0;
 
-    let contenedorMenu = scene.add.container(0, 0).setDepth(30);
+    let contenedorMenu = scene.add.container(0, 0).setDepth(100);
 
     let fondoMenu = scene.add.graphics();
-    fondoMenu.fillStyle(0x0f172a, 0.95); fondoMenu.fillRoundedRect(20, 95, 360, 560, 16);
+    fondoMenu.fillStyle(0x0f172a, 0.98); fondoMenu.fillRoundedRect(20, 95, 360, 560, 16);
     fondoMenu.lineStyle(4, 0x38bdf8, 1); fondoMenu.strokeRoundedRect(20, 95, 360, 560, 16);
     contenedorMenu.add(fondoMenu);
 
@@ -289,19 +297,17 @@ function mostrarTiendaSkins(scene) {
         let desbloqueado = false;
         let estadoTxt = '';
 
-        let userHighScore = Number(datosUsuario.highScore) || 0;
-
         if (s.tipo === 'gratis') {
             desbloqueado = true; estadoTxt = 'DESBLOQUEADO';
         } else if (s.tipo === 'puntos') {
-            desbloqueado = userHighScore >= s.req;
+            desbloqueado = recordActual >= s.req;
             estadoTxt = desbloqueado ? 'DESBLOQUEADO' : 'REQ: ' + s.req + ' PTS';
         } else if (s.tipo === 'anuncios') {
-            let vistos = (s.id === 'cucu_ninja') ? datosUsuario.adsVistosNinja : datosUsuario.adsVistosFiesta;
+            let vistos = (s.id === 'cucu_ninja') ? (datosUsuario.adsVistosNinja || 0) : (datosUsuario.adsVistosFiesta || 0);
             desbloqueado = vistos >= s.maxAds;
             estadoTxt = desbloqueado ? 'DESBLOQUEADO' : 'VER AD (' + vistos + '/' + s.maxAds + ')';
         } else if (s.tipo === 'pago') {
-            desbloqueado = datosUsuario.esVip;
+            desbloqueado = !!datosUsuario.esVip;
             estadoTxt = desbloqueado ? 'VIP ACTIVO' : 'COMPRAR ' + s.precio;
         }
 
@@ -318,7 +324,13 @@ function mostrarTiendaSkins(scene) {
             statusTxt.setText('EQUIPADO').setStyle({ fill: '#facc15' });
         }
 
-        let zonaInteractiva = scene.add.zone(xCol, yRow, 160, 60).setInteractive({ useHandCursor: true });
+        let tarjetaFondo = scene.add.graphics();
+        tarjetaFondo.fillStyle(desbloqueado ? 0x1e293b : 0x0f172a, 0.8);
+        tarjetaFondo.fillRoundedRect(xCol - 50, yRow - 25, 150, 50, 8);
+        tarjetaFondo.lineStyle(2, datosUsuario.skinEquipado === s.id ? 0xfacc15 : 0x334155, 1);
+        tarjetaFondo.strokeRoundedRect(xCol - 50, yRow - 25, 150, 50, 8);
+
+        let zonaInteractiva = scene.add.zone(xCol + 25, yRow, 150, 50).setInteractive({ useHandCursor: true });
 
         let intentarSeleccionar = () => {
             if (desbloqueado) {
@@ -336,7 +348,11 @@ function mostrarTiendaSkins(scene) {
 
         zonaInteractiva.on('pointerdown', intentarSeleccionar);
 
-        contenedorMenu.add(imgSkin); contenedorMenu.add(nameTxt); contenedorMenu.add(statusTxt); contenedorMenu.add(zonaInteractiva);
+        contenedorMenu.add(tarjetaFondo);
+        contenedorMenu.add(imgSkin); 
+        contenedorMenu.add(nameTxt); 
+        contenedorMenu.add(statusTxt); 
+        contenedorMenu.add(zonaInteractiva);
     });
 
     let btnJugarFondo = scene.add.graphics();
@@ -361,8 +377,8 @@ function mostrarTiendaSkins(scene) {
 }
 
 function simularVerAnuncio(skinId, scene, menuViejo) {
-    if (skinId === 'cucu_ninja') datosUsuario.adsVistosNinja++;
-    if (skinId === 'cucu_fiesta') datosUsuario.adsVistosFiesta++;
+    if (skinId === 'cucu_ninja') datosUsuario.adsVistosNinja = (datosUsuario.adsVistosNinja || 0) + 1;
+    if (skinId === 'cucu_fiesta') datosUsuario.adsVistosFiesta = (datosUsuario.adsVistosFiesta || 0) + 1;
     guardarDatos();
     alert('🎬 ¡Anuncio completado con éxito!');
     menuViejo.destroy();
@@ -529,11 +545,13 @@ function chocar(player, obstaculo) {
     gameOver = true;
     AudioFX.pitido();
 
+    this.input.off('pointerdown', handlerSalto, this);
+
     if (timerObstaculos) timerObstaculos.destroy();
     if (timerColeccionables) timerColeccionables.destroy();
     if (timerDificultad) timerDificultad.destroy();
 
-    let cartel = this.add.graphics().setDepth(40);
+    let cartel = this.add.graphics().setDepth(200);
     cartel.fillStyle(0x0f172a, 0.95); cartel.fillRoundedRect(GAME_WIDTH/2 - 140, GAME_HEIGHT/2 - 110, 280, 220, 16);
     cartel.lineStyle(3, 0xef4444, 1); cartel.strokeRoundedRect(GAME_WIDTH/2 - 140, GAME_HEIGHT/2 - 110, 280, 220, 16);
 
@@ -542,10 +560,11 @@ function chocar(player, obstaculo) {
 
     this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 - 5, '¡TARJETA ROJA!\n\nScore: ' + score + mensajeRecord + '\n\n[Toca para Reiniciar]', {
         fontSize: '18px', fill: '#ffffff', align: 'center', fontStyle: 'bold'
-    }).setOrigin(0.5).setDepth(41);
+    }).setOrigin(0.5).setDepth(201);
 
-    this.time.delayedCall(300, () => {
-        this.input.once('pointerdown', () => {
+    this.time.delayedCall(200, () => {
+        let recargaHitbox = this.add.zone(GAME_WIDTH/2, GAME_HEIGHT/2, GAME_WIDTH, GAME_HEIGHT).setInteractive().setDepth(202);
+        recargaHitbox.once('pointerdown', () => {
             this.scene.restart();
         });
     });
