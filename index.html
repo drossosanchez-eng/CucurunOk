@@ -42,13 +42,15 @@ let modoFiesta = false, lucesFiesta;
 let textoPuntos, textoBest, textoNivel, textoCopas, textoSuperCucu, tweenSuperCucu;
 let gameOver = false, juegoIniciado = false;
 
-let datosUsuario = JSON.parse(localStorage.getItem('cucu_user_data')) || {
-    highScore: 0,
-    adsVistosNinja: 0,
-    adsVistosFiesta: 0,
-    esVip: false,
-    skinEquipado: 'cucu_espana'
-};
+function obtenerDatos() {
+    let d = localStorage.getItem('cucu_user_data');
+    if (!d) {
+        return { highScore: 0, adsVistosNinja: 0, adsVistosFiesta: 0, esVip: false, skinEquipado: 'cucu_espana' };
+    }
+    return JSON.parse(d);
+}
+
+let datosUsuario = obtenerDatos();
 
 const CATALOGO_SKINS = [
     { id: 'cucu_espana', nombre: 'ESPAÑA', tipo: 'gratis', req: 0, color: '#dc2626', pantalon: '#1e3a8a', franja: '#facc15' },
@@ -106,8 +108,8 @@ const AudioFX = {
 };
 
 function preload() {
-    datosUsuario = JSON.parse(localStorage.getItem('cucu_user_data')) || datosUsuario;
-    highScore = datosUsuario.highScore;
+    datosUsuario = obtenerDatos();
+    highScore = Number(datosUsuario.highScore) || 0;
 
     CATALOGO_SKINS.forEach(s => {
         let canvasC = this.textures.createCanvas(s.id, 64, 84);
@@ -187,8 +189,8 @@ function preload() {
 }
 
 function create() {
-    datosUsuario = JSON.parse(localStorage.getItem('cucu_user_data')) || datosUsuario;
-    highScore = datosUsuario.highScore;
+    datosUsuario = obtenerDatos();
+    highScore = Number(datosUsuario.highScore) || 0;
 
     score = 0;
     contadorCopas = 0;
@@ -241,21 +243,6 @@ function create() {
     this.physics.add.overlap(cucurella, obstaculos, chocar, null, this);
     this.physics.add.overlap(cucurella, coleccionables, recogerColeccionable, null, this);
 
-    mostrarTiendaSkins(this);
-
-    this.input.off('pointerdown');
-    this.input.on('pointerdown', () => {
-        AudioFX.init();
-        if (gameOver) return;
-
-        if (juegoIniciado && saltosRestantes > 0) {
-            cucurella.setVelocityY(-780);
-            saltosRestantes--;
-            AudioFX.salto();
-            generarEfectoHierba(cucurella.x, cucurella.y + 35, this);
-        }
-    }, this);
-
     let marco = this.add.graphics();
     marco.fillStyle(0x020617, 0.9); marco.fillRoundedRect(16, 16, 260, 68, 12);
     marco.lineStyle(3, 0xfacc15, 1); marco.strokeRoundedRect(16, 16, 260, 68, 12);
@@ -268,10 +255,24 @@ function create() {
     textoSuperCucu = this.add.text(GAME_WIDTH / 2, 105, '¡¡SUPERCUCU!!', {
         fontSize: '32px', fill: '#facc15', fontFamily: 'Arial Black', stroke: '#000000', strokeThickness: 6
     }).setOrigin(0.5).setDepth(20).setVisible(false);
+
+    this.input.on('pointerdown', () => {
+        AudioFX.init();
+        if (gameOver) return;
+
+        if (juegoIniciado && saltosRestantes > 0) {
+            cucurella.setVelocityY(-780);
+            saltosRestantes--;
+            AudioFX.salto();
+            generarEfectoHierba(cucurella.x, cucurella.y + 35, this);
+        }
+    }, this);
+
+    mostrarTiendaSkins(this);
 }
 
 function mostrarTiendaSkins(scene) {
-    datosUsuario = JSON.parse(localStorage.getItem('cucu_user_data')) || datosUsuario;
+    datosUsuario = obtenerDatos();
 
     let contenedorMenu = scene.add.container(0, 0).setDepth(30);
 
@@ -288,10 +289,12 @@ function mostrarTiendaSkins(scene) {
         let desbloqueado = false;
         let estadoTxt = '';
 
+        let userHighScore = Number(datosUsuario.highScore) || 0;
+
         if (s.tipo === 'gratis') {
             desbloqueado = true; estadoTxt = 'DESBLOQUEADO';
         } else if (s.tipo === 'puntos') {
-            desbloqueado = datosUsuario.highScore >= s.req;
+            desbloqueado = userHighScore >= s.req;
             estadoTxt = desbloqueado ? 'DESBLOQUEADO' : 'REQ: ' + s.req + ' PTS';
         } else if (s.tipo === 'anuncios') {
             let vistos = (s.id === 'cucu_ninja') ? datosUsuario.adsVistosNinja : datosUsuario.adsVistosFiesta;
@@ -305,7 +308,7 @@ function mostrarTiendaSkins(scene) {
         let xCol = (idx % 2 === 0) ? 100 : 280;
         let yRow = yOffset + Math.floor(idx / 2) * 76;
 
-        let imgSkin = scene.add.image(xCol - 30, yRow, s.id).setScale(0.7).setInteractive({ useHandCursor: true });
+        let imgSkin = scene.add.image(xCol - 30, yRow, s.id).setScale(0.7);
         let nameTxt = scene.add.text(xCol + 10, yRow - 12, s.nombre, { fontSize: '13px', fill: '#ffffff', fontStyle: 'bold' });
         let statusTxt = scene.add.text(xCol + 10, yRow + 6, estadoTxt, {
             fontSize: '10px', fill: desbloqueado ? '#4ade80' : '#f87171', fontStyle: 'bold'
@@ -331,7 +334,6 @@ function mostrarTiendaSkins(scene) {
             }
         };
 
-        imgSkin.on('pointerdown', intentarSeleccionar);
         zonaInteractiva.on('pointerdown', intentarSeleccionar);
 
         contenedorMenu.add(imgSkin); contenedorMenu.add(nameTxt); contenedorMenu.add(statusTxt); contenedorMenu.add(zonaInteractiva);
@@ -538,14 +540,14 @@ function chocar(player, obstaculo) {
     let esNuevoRecord = score >= highScore && score > 0;
     let mensajeRecord = esNuevoRecord ? '\n¡NUEVO RÉCORD!' : '\nRécord: ' + highScore;
 
-    let textoGameOver = this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 - 5, '¡TARJETA ROJA!\n\nScore: ' + score + mensajeRecord + '\n\n[Toca para Reiniciar]', {
+    this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 - 5, '¡TARJETA ROJA!\n\nScore: ' + score + mensajeRecord + '\n\n[Toca para Reiniciar]', {
         fontSize: '18px', fill: '#ffffff', align: 'center', fontStyle: 'bold'
     }).setOrigin(0.5).setDepth(41);
 
-    let zonaReiniciar = this.add.zone(GAME_WIDTH/2, GAME_HEIGHT/2, GAME_WIDTH, GAME_HEIGHT).setInteractive({ useHandCursor: true }).setDepth(50);
-    
-    zonaReiniciar.once('pointerdown', () => {
-        this.scene.restart();
+    this.time.delayedCall(300, () => {
+        this.input.once('pointerdown', () => {
+            this.scene.restart();
+        });
     });
 }
 </script>
