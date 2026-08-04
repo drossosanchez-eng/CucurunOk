@@ -155,12 +155,6 @@ function preload() {
         this.textures.get('rival_' + tipo).refresh();
     });
 
-    let ctxAe = this.textures.createCanvas('aereo', 44, 44).context;
-    ctxAe.fillStyle = '#ffffff'; ctxAe.beginPath(); ctxAe.arc(22, 22, 18, 0, Math.PI * 2); ctxAe.fill();
-    ctxAe.fillStyle = '#000000'; ctxAe.beginPath(); ctxAe.arc(22, 22, 18, 0, Math.PI / 3); ctxAe.fill();
-    ctxAe.beginPath(); ctxAe.arc(22, 22, 18, Math.PI, Math.PI + Math.PI / 3); ctxAe.fill();
-    this.textures.get('aereo').refresh();
-
     let ctxP = this.textures.createCanvas('paella', 44, 44).context;
     ctxP.fillStyle = '#334155'; ctxP.fillRect(2, 18, 40, 8);
     ctxP.fillStyle = '#0f172a'; ctxP.beginPath(); ctxP.arc(22, 22, 18, 0, Math.PI * 2); ctxP.fill();
@@ -246,19 +240,18 @@ function create() {
     mostrarTiendaSkins(this);
 
     this.input.off('pointerdown');
-    this.input.on('pointerdown', (pointer) => {
+    this.input.on('pointerdown', () => {
         AudioFX.init();
-        if (!juegoIniciado) return;
-
-        if (!gameOver) {
-            if (saltosRestantes > 0) {
-                cucurella.setVelocityY(-780);
-                saltosRestantes--;
-                AudioFX.salto();
-                generarEfectoHierba(cucurella.x, cucurella.y + 35, this);
-            }
-        } else {
+        if (gameOver) {
             this.scene.restart();
+            return;
+        }
+
+        if (juegoIniciado && saltosRestantes > 0) {
+            cucurella.setVelocityY(-780);
+            saltosRestantes--;
+            AudioFX.salto();
+            generarEfectoHierba(cucurella.x, cucurella.y + 35, this);
         }
     }, this);
 
@@ -336,7 +329,6 @@ function mostrarTiendaSkins(scene) {
         contenedorMenu.add(imgSkin); contenedorMenu.add(nameTxt); contenedorMenu.add(statusTxt);
     });
 
-    // BOTÓN JUGAR (Añadido en la parte inferior para evitar que el usuario se quede atrapado)
     let btnJugarFondo = scene.add.graphics();
     btnJugarFondo.fillStyle(0x22c55e, 1); btnJugarFondo.fillRoundedRect(GAME_WIDTH / 2 - 120, 585, 240, 50, 12);
     btnJugarFondo.lineStyle(3, 0xffffff, 1); btnJugarFondo.strokeRoundedRect(GAME_WIDTH / 2 - 120, 585, 240, 50, 12);
@@ -405,7 +397,6 @@ function update() {
 
     obstaculos.getChildren().forEach(obs => {
         obs.body.setVelocityX(-velocidadObstaculos);
-        if (obs.isAereo) obs.angle += 4;
         if (obs.x < -60) { obs.destroy(); score += 50; actualizarMarcador(); }
     });
 
@@ -429,20 +420,18 @@ function incrementarDificultad() {
 
 function crearObstaculo() {
     if (gameOver) return;
-    let rand = Math.random(), posY = GAME_HEIGHT - 104, tipoKey = 'arbitro', esAereo = false;
+    let rand = Math.random(), posY = GAME_HEIGHT - 104, tipoKey = 'arbitro';
 
-    if (rand > 0.70) {
-        tipoKey = 'aereo'; posY = GAME_HEIGHT - 230; esAereo = true;
-    } else if (rand > 0.35) {
+    if (rand > 0.40) {
         const peinados = ['calvo', 'rubio', 'tupe', 'rizado'];
         tipoKey = 'rival_' + peinados[Math.floor(Math.random() * peinados.length)];
     }
 
     let obs = obstaculos.create(GAME_WIDTH + 40, posY, tipoKey);
-    obs.body.setAllowGravity(false); obs.body.setImmovable(true); obs.isAereo = esAereo;
-
-    if (esAereo) obs.body.setSize(30, 30);
-    else { obs.body.setSize(30, 52); obs.body.setOffset(9, 12); }
+    obs.body.setAllowGravity(false); 
+    obs.body.setImmovable(true);
+    obs.body.setSize(30, 52); 
+    obs.body.setOffset(9, 12);
 }
 
 function crearColeccionable() {
@@ -523,7 +512,12 @@ function chocar(player, obstaculo) {
         obstaculo.destroy(); actualizarMarcador(); return;
     }
 
-    this.physics.pause(); cucurella.setTint(0xff3333); gameOver = true; AudioFX.pitido();
+    if (gameOver) return;
+
+    this.physics.pause();
+    cucurella.setTint(0xff3333);
+    gameOver = true;
+    AudioFX.pitido();
 
     if (timerObstaculos) timerObstaculos.destroy();
     if (timerColeccionables) timerColeccionables.destroy();
