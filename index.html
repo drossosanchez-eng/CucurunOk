@@ -199,6 +199,18 @@ function preload() {
 }
 
 function create() {
+    // Reset de estado del juego
+    score = 0;
+    contadorCopas = 0;
+    modoFiesta = false;
+    gameOver = false;
+    juegoIniciado = false;
+    saltosRestantes = 2;
+    velocidadObstaculos = 280;
+    velocidadColeccionables = 230;
+    retrasoSpawns = 1650;
+    multiplicadorVelocidad = 1.0;
+
     let bg = this.add.graphics();
     bg.fillStyle(0x0f172a, 1); bg.fillRect(0, 0, GAME_WIDTH, 180);
     bg.fillStyle(0xfef08a, 0.2);
@@ -243,6 +255,7 @@ function create() {
     mostrarTiendaSkins(this);
 
     // CONTROLES
+    this.input.off('pointerdown');
     this.input.on('pointerdown', () => {
         AudioFX.init();
         if (!juegoIniciado) return;
@@ -255,7 +268,7 @@ function create() {
                 generarEfectoHierba(cucurella.x, cucurella.y + 35, this);
             }
         } else {
-            location.reload();
+            this.scene.restart();
         }
     }, this);
 
@@ -501,7 +514,11 @@ function chocar(player, obstaculo) {
 
     this.physics.pause(); cucurella.setTint(0xff3333); gameOver = true; AudioFX.pitido();
 
-    let cartel = this.add.graphics();
+    if (timerObstaculos) timerObstaculos.destroy();
+    if (timerColeccionables) timerColeccionables.destroy();
+    if (timerDificultad) timerDificultad.destroy();
+
+    let cartel = this.add.graphics().setDepth(40);
     cartel.fillStyle(0x0f172a, 0.95); cartel.fillRoundedRect(GAME_WIDTH/2 - 140, GAME_HEIGHT/2 - 110, 280, 220, 16);
     cartel.lineStyle(3, 0xef4444, 1); cartel.strokeRoundedRect(GAME_WIDTH/2 - 140, GAME_HEIGHT/2 - 110, 280, 220, 16);
 
@@ -510,7 +527,7 @@ function chocar(player, obstaculo) {
 
     this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 - 5, '¡TARJETA ROJA!\n\nScore: ' + score + mensajeRecord + '\n\n[Toca para Reiniciar]', {
         fontSize: '18px', fill: '#ffffff', align: 'center', fontStyle: 'bold'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(41);
 }
 </script>
 
