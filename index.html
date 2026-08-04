@@ -106,6 +106,7 @@ const AudioFX = {
 };
 
 function preload() {
+    datosUsuario = JSON.parse(localStorage.getItem('cucu_user_data')) || datosUsuario;
     highScore = datosUsuario.highScore;
 
     CATALOGO_SKINS.forEach(s => {
@@ -186,6 +187,9 @@ function preload() {
 }
 
 function create() {
+    datosUsuario = JSON.parse(localStorage.getItem('cucu_user_data')) || datosUsuario;
+    highScore = datosUsuario.highScore;
+
     score = 0;
     contadorCopas = 0;
     modoFiesta = false;
@@ -242,10 +246,7 @@ function create() {
     this.input.off('pointerdown');
     this.input.on('pointerdown', () => {
         AudioFX.init();
-        if (gameOver) {
-            this.scene.restart();
-            return;
-        }
+        if (gameOver) return;
 
         if (juegoIniciado && saltosRestantes > 0) {
             cucurella.setVelocityY(-780);
@@ -270,6 +271,8 @@ function create() {
 }
 
 function mostrarTiendaSkins(scene) {
+    datosUsuario = JSON.parse(localStorage.getItem('cucu_user_data')) || datosUsuario;
+
     let contenedorMenu = scene.add.container(0, 0).setDepth(30);
 
     let fondoMenu = scene.add.graphics();
@@ -312,7 +315,9 @@ function mostrarTiendaSkins(scene) {
             statusTxt.setText('EQUIPADO').setStyle({ fill: '#facc15' });
         }
 
-        imgSkin.on('pointerdown', () => {
+        let zonaInteractiva = scene.add.zone(xCol, yRow, 160, 60).setInteractive({ useHandCursor: true });
+
+        let intentarSeleccionar = () => {
             if (desbloqueado) {
                 datosUsuario.skinEquipado = s.id;
                 guardarDatos();
@@ -324,9 +329,12 @@ function mostrarTiendaSkins(scene) {
             } else if (s.tipo === 'pago') {
                 simularCompraVip(scene, contenedorMenu);
             }
-        });
+        };
 
-        contenedorMenu.add(imgSkin); contenedorMenu.add(nameTxt); contenedorMenu.add(statusTxt);
+        imgSkin.on('pointerdown', intentarSeleccionar);
+        zonaInteractiva.on('pointerdown', intentarSeleccionar);
+
+        contenedorMenu.add(imgSkin); contenedorMenu.add(nameTxt); contenedorMenu.add(statusTxt); contenedorMenu.add(zonaInteractiva);
     });
 
     let btnJugarFondo = scene.add.graphics();
@@ -530,9 +538,15 @@ function chocar(player, obstaculo) {
     let esNuevoRecord = score >= highScore && score > 0;
     let mensajeRecord = esNuevoRecord ? '\n¡NUEVO RÉCORD!' : '\nRécord: ' + highScore;
 
-    this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 - 5, '¡TARJETA ROJA!\n\nScore: ' + score + mensajeRecord + '\n\n[Toca para Reiniciar]', {
+    let textoGameOver = this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 - 5, '¡TARJETA ROJA!\n\nScore: ' + score + mensajeRecord + '\n\n[Toca para Reiniciar]', {
         fontSize: '18px', fill: '#ffffff', align: 'center', fontStyle: 'bold'
     }).setOrigin(0.5).setDepth(41);
+
+    let zonaReiniciar = this.add.zone(GAME_WIDTH/2, GAME_HEIGHT/2, GAME_WIDTH, GAME_HEIGHT).setInteractive({ useHandCursor: true }).setDepth(50);
+    
+    zonaReiniciar.once('pointerdown', () => {
+        this.scene.restart();
+    });
 }
 </script>
 
