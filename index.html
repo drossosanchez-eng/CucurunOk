@@ -42,7 +42,6 @@ let modoFiesta = false, lucesFiesta;
 let textoPuntos, textoBest, textoNivel, textoCopas, textoSuperCucu, tweenSuperCucu;
 let gameOver = false, juegoIniciado = false;
 
-// Configuración de Skins y Persistencia Local
 let datosUsuario = JSON.parse(localStorage.getItem('cucu_user_data')) || {
     highScore: 0,
     adsVistosNinja: 0,
@@ -109,34 +108,28 @@ const AudioFX = {
 function preload() {
     highScore = datosUsuario.highScore;
 
-    // Generar texturas de todas las Skins
     CATALOGO_SKINS.forEach(s => {
         let canvasC = this.textures.createCanvas(s.id, 64, 84);
         let ctxC = canvasC.context;
 
-        // Pelo
         ctxC.fillStyle = '#1c100b';
         ctxC.beginPath(); ctxC.arc(32, 24, 25, 0, Math.PI * 2); ctxC.fill();
         ctxC.beginPath(); ctxC.arc(12, 32, 16, 0, Math.PI * 2); ctxC.fill();
         ctxC.beginPath(); ctxC.arc(52, 32, 16, 0, Math.PI * 2); ctxC.fill();
 
-        // Cara
         ctxC.fillStyle = '#f3c193'; ctxC.fillRect(20, 22, 24, 22);
         ctxC.fillStyle = '#ffffff'; ctxC.fillRect(24, 28, 6, 6); ctxC.fillRect(34, 28, 6, 6);
         ctxC.fillStyle = '#000000'; ctxC.fillRect(26, 30, 3, 3); ctxC.fillRect(36, 30, 3, 3);
         ctxC.fillStyle = '#1c100b'; ctxC.fillRect(26, 38, 12, 3);
 
-        // Camiseta
         ctxC.fillStyle = s.color; ctxC.fillRect(16, 44, 32, 22);
         ctxC.fillStyle = s.franja; ctxC.fillRect(16, 44, 4, 22); ctxC.fillRect(44, 44, 4, 22);
 
-        // Pantalón y Zapatillas
         ctxC.fillStyle = s.pantalon; ctxC.fillRect(16, 66, 32, 14);
         ctxC.fillStyle = '#ffffff'; ctxC.fillRect(16, 80, 12, 4); ctxC.fillRect(36, 80, 12, 4);
         canvasC.refresh();
     });
 
-    // Árbitro, Rivales, Obstáculos y Coleccionables
     let canvasA = this.textures.createCanvas('arbitro', 52, 72).context;
     canvasA.fillStyle = '#f5d0a9'; canvasA.beginPath(); canvasA.arc(22, 14, 10, 0, Math.PI * 2); canvasA.fill();
     canvasA.fillStyle = '#0f172a'; canvasA.beginPath(); canvasA.arc(22, 10, 10, Math.PI, Math.PI * 2); canvasA.fill();
@@ -199,7 +192,6 @@ function preload() {
 }
 
 function create() {
-    // Reset de estado del juego
     score = 0;
     contadorCopas = 0;
     modoFiesta = false;
@@ -251,12 +243,10 @@ function create() {
     this.physics.add.overlap(cucurella, obstaculos, chocar, null, this);
     this.physics.add.overlap(cucurella, coleccionables, recogerColeccionable, null, this);
 
-    // DIBUJAR MENÚ TIENDA / SKINS
     mostrarTiendaSkins(this);
 
-    // CONTROLES
     this.input.off('pointerdown');
-    this.input.on('pointerdown', () => {
+    this.input.on('pointerdown', (pointer) => {
         AudioFX.init();
         if (!juegoIniciado) return;
 
@@ -272,7 +262,6 @@ function create() {
         }
     }, this);
 
-    // MARCADOR
     let marco = this.add.graphics();
     marco.fillStyle(0x020617, 0.9); marco.fillRoundedRect(16, 16, 260, 68, 12);
     marco.lineStyle(3, 0xfacc15, 1); marco.strokeRoundedRect(16, 16, 260, 68, 12);
@@ -291,14 +280,14 @@ function mostrarTiendaSkins(scene) {
     let contenedorMenu = scene.add.container(0, 0).setDepth(30);
 
     let fondoMenu = scene.add.graphics();
-    fondoMenu.fillStyle(0x0f172a, 0.95); fondoMenu.fillRoundedRect(20, 100, 360, 520, 16);
-    fondoMenu.lineStyle(4, 0x38bdf8, 1); fondoMenu.strokeRoundedRect(20, 100, 360, 520, 16);
+    fondoMenu.fillStyle(0x0f172a, 0.95); fondoMenu.fillRoundedRect(20, 95, 360, 560, 16);
+    fondoMenu.lineStyle(4, 0x38bdf8, 1); fondoMenu.strokeRoundedRect(20, 95, 360, 560, 16);
     contenedorMenu.add(fondoMenu);
 
-    let titulo = scene.add.text(GAME_WIDTH / 2, 130, 'ARMARIO CUCU', { fontSize: '24px', fill: '#facc15', fontFamily: 'Arial Black' }).setOrigin(0.5);
+    let titulo = scene.add.text(GAME_WIDTH / 2, 120, 'ARMARIO CUCU', { fontSize: '24px', fill: '#facc15', fontFamily: 'Arial Black' }).setOrigin(0.5);
     contenedorMenu.add(titulo);
 
-    let yOffset = 180;
+    let yOffset = 165;
     CATALOGO_SKINS.forEach((s, idx) => {
         let desbloqueado = false;
         let estadoTxt = '';
@@ -318,9 +307,9 @@ function mostrarTiendaSkins(scene) {
         }
 
         let xCol = (idx % 2 === 0) ? 100 : 280;
-        let yRow = yOffset + Math.floor(idx / 2) * 85;
+        let yRow = yOffset + Math.floor(idx / 2) * 76;
 
-        let imgSkin = scene.add.image(xCol - 30, yRow, s.id).setScale(0.7).setInteractive();
+        let imgSkin = scene.add.image(xCol - 30, yRow, s.id).setScale(0.7).setInteractive({ useHandCursor: true });
         let nameTxt = scene.add.text(xCol + 10, yRow - 12, s.nombre, { fontSize: '13px', fill: '#ffffff', fontStyle: 'bold' });
         let statusTxt = scene.add.text(xCol + 10, yRow + 6, estadoTxt, {
             fontSize: '10px', fill: desbloqueado ? '#4ade80' : '#f87171', fontStyle: 'bold'
@@ -346,6 +335,27 @@ function mostrarTiendaSkins(scene) {
 
         contenedorMenu.add(imgSkin); contenedorMenu.add(nameTxt); contenedorMenu.add(statusTxt);
     });
+
+    // BOTÓN JUGAR (Añadido en la parte inferior para evitar que el usuario se quede atrapado)
+    let btnJugarFondo = scene.add.graphics();
+    btnJugarFondo.fillStyle(0x22c55e, 1); btnJugarFondo.fillRoundedRect(GAME_WIDTH / 2 - 120, 585, 240, 50, 12);
+    btnJugarFondo.lineStyle(3, 0xffffff, 1); btnJugarFondo.strokeRoundedRect(GAME_WIDTH / 2 - 120, 585, 240, 50, 12);
+
+    let btnJugarTexto = scene.add.text(GAME_WIDTH / 2, 610, '¡JUGAR YA!', {
+        fontSize: '22px', fill: '#ffffff', fontFamily: 'Arial Black'
+    }).setOrigin(0.5);
+
+    let btnHitbox = scene.add.zone(GAME_WIDTH / 2, 610, 240, 50).setInteractive({ useHandCursor: true });
+
+    btnHitbox.on('pointerdown', () => {
+        cucurella.setTexture(datosUsuario.skinEquipado).setVisible(true);
+        contenedorMenu.destroy();
+        iniciarJuego(scene);
+    });
+
+    contenedorMenu.add(btnJugarFondo);
+    contenedorMenu.add(btnJugarTexto);
+    contenedorMenu.add(btnHitbox);
 }
 
 function simularVerAnuncio(skinId, scene, menuViejo) {
@@ -372,6 +382,7 @@ function guardarDatos() {
 }
 
 function iniciarJuego(scene) {
+    if (juegoIniciado) return;
     juegoIniciado = true;
     timerObstaculos = scene.time.addEvent({ delay: retrasoSpawns, callback: crearObstaculo, callbackScope: scene, loop: true });
     timerColeccionables = scene.time.addEvent({ delay: 1900, callback: crearColeccionable, callbackScope: scene, loop: true });
