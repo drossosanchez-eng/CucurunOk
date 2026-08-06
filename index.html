@@ -56,11 +56,139 @@ function siguienteSkinBloqueada(highScore) {
     return SKINS.find(s => highScore < s.umbral) || null;
 }
 
+// Skins premium: se compran con dinero real (aquí simulado), no por puntos
+const PREMIUM_SKINS = [
+    { id: 'retro',  nombre: 'Retro Clásica',  precio: '1,99€', colores: { jersey: '#f3e6c8', trim: '#7f1d1d', shorts: '#1e293b', socks: '#f3e6c8' } },
+    { id: 'dorada', nombre: 'Edición Dorada', precio: '1,99€', colores: { jersey: '#d4af37', trim: '#111111', shorts: '#111111', socks: '#d4af37' } }
+];
+
+const TODAS_LAS_SKINS = SKINS.concat(PREMIUM_SKINS);
+
+function obtenerSkinsCompradas() {
+    try { return JSON.parse(localStorage.getItem('cucu_skins_premium_compradas') || '[]'); }
+    catch (e) { return []; }
+}
+
+function guardarSkinsCompradas(arr) {
+    localStorage.setItem('cucu_skins_premium_compradas', JSON.stringify(arr));
+}
+
+function skinPremiumComprada(id) {
+    return obtenerSkinsCompradas().includes(id);
+}
+
+function comprarSkinPremium(id) {
+    let compradas = obtenerSkinsCompradas();
+    if (!compradas.includes(id)) {
+        compradas.push(id);
+        guardarSkinsCompradas(compradas);
+    }
+}
+
+// NOTA: esto es una SIMULACIÓN de compra (no cobra dinero real).
+// Para cobrar de verdad haría falta integrar una pasarela de pago
+// (Stripe/PayPal en web, o las compras integradas de Google Play / App Store en una app).
+function simularCompra(scene, skin) {
+    AudioFX.init();
+    let confirmado = window.confirm(
+        'Comprar "' + skin.nombre + '" por ' + skin.precio + '\n\n' +
+        'Esto es una demo: no se realizará ningún cargo real.\n' +
+        'Para cobrar de verdad haría falta conectar una pasarela de pago.\n\n' +
+        '¿Confirmar compra simulada?'
+    );
+    if (confirmado) {
+        comprarSkinPremium(skin.id);
+        AudioFX.powerUp();
+        scene.scene.restart();
+    } else {
+        AudioFX.denegado();
+    }
+}
+
+// ============================================================
+// MISIONES DIARIAS
+// ============================================================
+const MISSIONS_POOL = [
+    { id: 'paellas',       desc: 'Recoge {n} paellas',                  target: 15 },
+    { id: 'cervezas',      desc: 'Recoge {n} cervezas',                 target: 10 },
+    { id: 'puntuacion',    desc: 'Consigue {n} pts en una partida',     target: 3000 },
+    { id: 'supervivencia', desc: 'Sobrevive {n} segundos en una partida', target: 45 }
+];
+
+function obtenerFechaHoy() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+function hashTexto(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+    return Math.abs(h);
+}
+
+function misionesDeHoy() {
+    let h = hashTexto(obtenerFechaHoy());
+    let idx1 = h % MISSIONS_POOL.length;
+    let idx2 = (idx1 + 1 + (h % 3)) % MISSIONS_POOL.length;
+    if (idx2 === idx1) idx2 = (idx2 + 1) % MISSIONS_POOL.length;
+    return [MISSIONS_POOL[idx1], MISSIONS_POOL[idx2]];
+}
+
+function obtenerProgresoMisiones() {
+    let fecha = obtenerFechaHoy();
+    let raw = localStorage.getItem('cucu_misiones');
+    let datos = null;
+    try { datos = raw ? JSON.parse(raw) : null; } catch (e) { datos = null; }
+    if (!datos || datos.fecha !== fecha) {
+        datos = { fecha: fecha, progreso: {}, completadas: [] };
+        localStorage.setItem('cucu_misiones', JSON.stringify(datos));
+    }
+    return datos;
+}
+
+function guardarProgresoMisiones(datos) {
+    localStorage.setItem('cucu_misiones', JSON.stringify(datos));
+}
+
+// modo: 'add' suma cantidad, 'max' se queda con el mayor valor visto
+function procesarProgresoMision(tipo, valor, modo, scene) {
+    let hoy = misionesDeHoy();
+    let mision = hoy.find(m => m.id === tipo);
+    if (!mision) return;
+
+    let datos = obtenerProgresoMisiones();
+    if (datos.completadas.includes(tipo)) return;
+
+    let actual = datos.progreso[tipo] || 0;
+    let nuevo = modo === 'add' ? actual + valor : Math.max(actual, valor);
+    datos.progreso[tipo] = nuevo;
+
+    if (nuevo >= mision.target) {
+        datos.completadas.push(tipo);
+        if (scene && typeof score !== 'undefined') {
+            score += 400;
+            if (typeof cucurella !== 'undefined' && cucurella) {
+                mostrarTextoFlotante('¡MISIÓN CUMPLIDA! +400', cucurella.x, cucurella.y - 60, scene);
+            }
+            AudioFX.powerUp();
+        }
+    }
+    guardarProgresoMisiones(datos);
+}
+
+function incrementarProgresoMision(tipo, cantidad, scene) {
+    procesarProgresoMision(tipo, cantidad, 'add', scene);
+}
+
+function actualizarProgresoMisionMax(tipo, valor, scene) {
+    procesarProgresoMision(tipo, valor, 'max', scene);
+}
+
 const AudioFX = {
     ctx: null,
     init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
     salto() {
         if (!this.ctx) return;
+
         let osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
         osc.connect(gain); gain.connect(this.ctx.destination);
         osc.type = 'sine'; osc.frequency.setValueAtTime(150, this.ctx.currentTime);
@@ -135,7 +263,7 @@ function dibujarCucurellaSkin(scene, key, colores) {
 }
 
 function generarSkinsCucurella(scene) {
-    SKINS.forEach(skin => dibujarCucurellaSkin(scene, 'cucurella_' + skin.id, skin.colores));
+    TODAS_LAS_SKINS.forEach(skin => dibujarCucurellaSkin(scene, 'cucurella_' + skin.id, skin.colores));
 }
 
 function generarTexturasComunes(scene) {
@@ -186,6 +314,27 @@ function generarTexturasComunes(scene) {
     ctxCop.fillStyle = '#166534'; ctxCop.fillRect(8, 43, 20, 3);
     scene.textures.get('copa').refresh();
 
+    // Power-up: escudo (bloquea un golpe)
+    let ctxEsc = scene.textures.createCanvas('escudo', 36, 42).context;
+    ctxEsc.fillStyle = '#1d4ed8';
+    ctxEsc.beginPath();
+    ctxEsc.moveTo(4, 4); ctxEsc.lineTo(32, 4); ctxEsc.lineTo(32, 22); ctxEsc.lineTo(18, 40); ctxEsc.lineTo(4, 22);
+    ctxEsc.closePath(); ctxEsc.fill();
+    ctxEsc.fillStyle = '#93c5fd';
+    ctxEsc.beginPath();
+    ctxEsc.moveTo(9, 9); ctxEsc.lineTo(27, 9); ctxEsc.lineTo(27, 21); ctxEsc.lineTo(18, 33); ctxEsc.lineTo(9, 21);
+    ctxEsc.closePath(); ctxEsc.fill();
+    scene.textures.get('escudo').refresh();
+
+    // Power-up: imán (atrae coleccionables)
+    let ctxIm = scene.textures.createCanvas('iman', 36, 36).context;
+    ctxIm.fillStyle = '#b91c1c';
+    ctxIm.fillRect(6, 8, 9, 24); ctxIm.fillRect(21, 8, 9, 24);
+    ctxIm.beginPath(); ctxIm.arc(18, 26, 12, 0, Math.PI); ctxIm.fill();
+    ctxIm.fillStyle = '#e5e7eb';
+    ctxIm.fillRect(6, 4, 9, 7); ctxIm.fillRect(21, 4, 9, 7);
+    scene.textures.get('iman').refresh();
+
     let ctxS = scene.textures.createCanvas('suelo', GAME_WIDTH, 70).context;
     ctxS.fillStyle = '#15803d'; ctxS.fillRect(0, 0, GAME_WIDTH, 70);
     ctxS.fillStyle = '#ffffff'; ctxS.fillRect(0, 0, GAME_WIDTH, 6);
@@ -195,6 +344,7 @@ function generarTexturasComunes(scene) {
     ctxH.fillStyle = '#4ade80'; ctxH.fillRect(0, 0, 6, 6);
     scene.textures.get('p_hierba').refresh();
 }
+
 
 function dibujarFondoEstadio(scene) {
     let bg = scene.add.graphics();
@@ -240,36 +390,57 @@ class MenuScene extends Phaser.Scene {
         let overlay = this.add.graphics();
         overlay.fillStyle(0x000000, 0.45); overlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-        this.add.text(GAME_WIDTH / 2, 130, 'CUCU-RUN', {
-            fontSize: '44px', fill: '#facc15', fontFamily: 'Arial Black', stroke: '#000000', strokeThickness: 7
+        this.add.text(GAME_WIDTH / 2, 96, 'CUCU-RUN', {
+            fontSize: '38px', fill: '#facc15', fontFamily: 'Arial Black', stroke: '#000000', strokeThickness: 6
         }).setOrigin(0.5);
 
-        this.add.text(GAME_WIDTH / 2, 178, '⚽ el runner futbolero ⚽', {
-            fontSize: '14px', fill: '#e2e8f0', fontStyle: 'bold'
+        this.add.text(GAME_WIDTH / 2, 134, '⚽ el runner futbolero ⚽', {
+            fontSize: '13px', fill: '#e2e8f0', fontStyle: 'bold'
         }).setOrigin(0.5);
 
         let highScore = obtenerHighScore();
-        this.add.text(GAME_WIDTH / 2, 225, 'Mejor puntuación: ' + formatNum(highScore), {
-            fontSize: '15px', fill: '#38bdf8', fontStyle: 'bold'
+        this.add.text(GAME_WIDTH / 2, 165, 'Mejor puntuación: ' + formatNum(highScore), {
+            fontSize: '14px', fill: '#38bdf8', fontStyle: 'bold'
         }).setOrigin(0.5);
 
-        let skinActual = SKINS.find(s => s.id === obtenerSkinSeleccionada()) || SKINS[0];
-        this.add.image(GAME_WIDTH / 2, 320, 'cucurella_' + skinActual.id).setScale(1.3);
+        // --- Panel de misiones diarias ---
+        let panel = this.add.graphics();
+        panel.fillStyle(0x0f172a, 0.85); panel.fillRoundedRect(30, 188, GAME_WIDTH - 60, 78, 10);
+        panel.lineStyle(1, 0x334155, 1); panel.strokeRoundedRect(30, 188, GAME_WIDTH - 60, 78, 10);
+
+        this.add.text(GAME_WIDTH / 2, 200, '🎯 MISIONES DE HOY', {
+            fontSize: '12px', fill: '#facc15', fontStyle: 'bold'
+        }).setOrigin(0.5, 0);
+
+        let misionesHoy = misionesDeHoy();
+        let datosMision = obtenerProgresoMisiones();
+        misionesHoy.forEach((m, i) => {
+            let progreso = Math.min(datosMision.progreso[m.id] || 0, m.target);
+            let completada = datosMision.completadas.includes(m.id);
+            let texto = (completada ? '✅ ' : '⬜ ') + m.desc.replace('{n}', formatNum(m.target)) +
+                '  (' + formatNum(progreso) + '/' + formatNum(m.target) + ')';
+            this.add.text(GAME_WIDTH / 2, 222 + i * 20, texto, {
+                fontSize: '11px', fill: completada ? '#4ade80' : '#cbd5e1'
+            }).setOrigin(0.5, 0);
+        });
+
+        let skinActual = TODAS_LAS_SKINS.find(s => s.id === obtenerSkinSeleccionada()) || SKINS[0];
+        this.add.image(GAME_WIDTH / 2, 335, 'cucurella_' + skinActual.id).setScale(1.1);
         this.add.text(GAME_WIDTH / 2, 385, skinActual.nombre, {
-            fontSize: '14px', fill: '#facc15', fontStyle: 'bold'
+            fontSize: '13px', fill: '#facc15', fontStyle: 'bold'
         }).setOrigin(0.5);
 
-        this.crearBoton(GAME_WIDTH / 2, 460, 220, 62, 0x16a34a, 0x22c55e, '▶  START', () => {
+        this.crearBoton(GAME_WIDTH / 2, 450, 220, 60, 0x16a34a, 0x22c55e, '▶  START', () => {
             AudioFX.init(); AudioFX.click();
             this.scene.start('MainScene');
         });
 
-        this.crearBoton(GAME_WIDTH / 2, 545, 220, 62, 0xca8a04, 0xfacc15, '🛒  COMPRAR SKINS', () => {
+        this.crearBoton(GAME_WIDTH / 2, 530, 220, 60, 0xca8a04, 0xfacc15, '🛒  COMPRAR SKINS', () => {
             AudioFX.init(); AudioFX.click();
             this.scene.start('ShopScene');
         }, '#1c1503');
 
-        this.add.text(GAME_WIDTH / 2, 630, 'Consigue puntos para desbloquear\ncamisetas de nuevos equipos', {
+        this.add.text(GAME_WIDTH / 2, 610, '🛡️ escudo y 🧲 imán aparecen en las partidas\nCompleta misiones para ganar puntos extra', {
             fontSize: '11px', fill: '#94a3b8', align: 'center'
         }).setOrigin(0.5);
     }
@@ -316,57 +487,96 @@ class ShopScene extends Phaser.Scene {
             fontSize: '13px', fill: '#38bdf8', fontStyle: 'bold'
         }).setOrigin(0.5);
 
-        let yInicial = 100, alto = 92;
+        this.add.text(GAME_WIDTH / 2, 88, '🔒 por puntos      💳 edición premium', {
+            fontSize: '11px', fill: '#94a3b8'
+        }).setOrigin(0.5);
 
-        SKINS.forEach((skin, i) => {
-            let y = yInicial + i * alto;
-            let desbloqueada = highScore >= skin.umbral;
+        // --- Cuadrícula 2x4 con todas las skins (por puntos + premium) ---
+        let items = SKINS.map(s => ({ skin: s, tipo: 'puntos' }))
+            .concat(PREMIUM_SKINS.map(s => ({ skin: s, tipo: 'premium' })));
+
+        let cols = 2, cardW = 176, cardH = 118, gapY = 10, yTop = 112;
+        let centrosX = [106, 294];
+
+        items.forEach((entrada, i) => {
+            let skin = entrada.skin;
+            let fila = Math.floor(i / cols), col = i % cols;
+            let cx = centrosX[col];
+            let cy = yTop + fila * (cardH + gapY) + cardH / 2;
+
             let equipada = skin.id === skinEquipada;
+            let desbloqueada, estadoTexto, colorBorde, onTap;
 
-            let fondo = this.add.graphics();
-            let colorFondo = equipada ? 0x14532d : (desbloqueada ? 0x1e293b : 0x111827);
-            fondo.fillStyle(colorFondo, 0.92); fondo.fillRoundedRect(20, y - alto / 2 + 6, GAME_WIDTH - 40, alto - 12, 10);
-            fondo.lineStyle(equipada ? 3 : 1, equipada ? 0xfacc15 : 0x334155, 1);
-            fondo.strokeRoundedRect(20, y - alto / 2 + 6, GAME_WIDTH - 40, alto - 12, 10);
+            if (entrada.tipo === 'puntos') {
+                desbloqueada = highScore >= skin.umbral;
+                colorBorde = 0x334155;
+                if (equipada) estadoTexto = '✓ EQUIPADO';
+                else if (desbloqueada) estadoTexto = 'Toca para\nequipar';
+                else estadoTexto = '🔒 ' + formatNum(skin.umbral) + ' pts';
 
-            let icono = this.add.image(56, y, 'cucurella_' + skin.id).setScale(0.62);
-            if (!desbloqueada) icono.setTint(0x3a3a3a);
+                onTap = () => {
+                    AudioFX.init();
+                    if (!desbloqueada) {
+                        AudioFX.denegado();
+                        this.cameras.main.shake(100, 0.006);
+                        return;
+                    }
+                    if (!equipada) {
+                        AudioFX.click();
+                        guardarSkinSeleccionada(skin.id);
+                        this.scene.restart();
+                    }
+                };
+            } else {
+                desbloqueada = skinPremiumComprada(skin.id);
+                colorBorde = 0x9333ea;
+                if (equipada) estadoTexto = '✓ EQUIPADO';
+                else if (desbloqueada) estadoTexto = 'Toca para\nequipar';
+                else estadoTexto = '💳 ' + skin.precio;
 
-            this.add.text(96, y - 18, skin.nombre, {
-                fontSize: '17px', fill: desbloqueada ? '#ffffff' : '#6b7280', fontFamily: 'Arial Black'
-            });
+                onTap = () => {
+                    if (!desbloqueada) { simularCompra(this, skin); return; }
+                    if (!equipada) {
+                        AudioFX.init(); AudioFX.click();
+                        guardarSkinSeleccionada(skin.id);
+                        this.scene.restart();
+                    }
+                };
+            }
 
-            let estadoTexto;
-            if (equipada) estadoTexto = '✓ EQUIPADO';
-            else if (desbloqueada) estadoTexto = 'Toca para equipar';
-            else estadoTexto = '🔒 Requiere ' + formatNum(skin.umbral) + ' pts';
-
-            this.add.text(96, y + 6, estadoTexto, {
-                fontSize: '12px',
-                fill: equipada ? '#4ade80' : (desbloqueada ? '#facc15' : '#9ca3af'),
-                fontStyle: 'bold'
-            });
-
-            let zona = this.add.zone(GAME_WIDTH / 2, y, GAME_WIDTH - 40, alto - 12).setInteractive({ useHandCursor: true });
-            zona.on('pointerdown', () => {
-                AudioFX.init();
-                if (!desbloqueada) {
-                    AudioFX.denegado();
-                    this.cameras.main.shake(120, 0.006);
-                    return;
-                }
-                if (!equipada) {
-                    AudioFX.click();
-                    guardarSkinSeleccionada(skin.id);
-                    this.scene.restart();
-                }
-            });
+            this.crearTarjetaSkin(skin, cx, cy, cardW, cardH, desbloqueada, equipada, estadoTexto, colorBorde, onTap);
         });
 
-        this.crearBoton(GAME_WIDTH / 2, yInicial + SKINS.length * alto + 30, 200, 54, 0x334155, 0x64748b, '←  MENÚ', () => {
+        let filas = Math.ceil(items.length / cols);
+        let yBoton = yTop + filas * (cardH + gapY) + 32;
+        this.crearBoton(GAME_WIDTH / 2, yBoton, 200, 50, 0x334155, 0x64748b, '←  MENÚ', () => {
             AudioFX.init(); AudioFX.click();
             this.scene.start('MenuScene');
         });
+    }
+
+    crearTarjetaSkin(skin, cx, cy, w, h, desbloqueada, equipada, estadoTexto, colorBorde, onTap) {
+        let fondo = this.add.graphics();
+        let colorFondo = equipada ? 0x14532d : (desbloqueada ? 0x1e293b : 0x18102b);
+        fondo.fillStyle(colorFondo, 0.92); fondo.fillRoundedRect(cx - w / 2, cy - h / 2, w, h, 10);
+        fondo.lineStyle(equipada ? 3 : (desbloqueada ? 1 : 2), equipada ? 0xfacc15 : colorBorde, 1);
+        fondo.strokeRoundedRect(cx - w / 2, cy - h / 2, w, h, 10);
+
+        let icono = this.add.image(cx, cy - 30, 'cucurella_' + skin.id).setScale(0.48);
+        if (!desbloqueada) icono.setTint(0x3a3a3a);
+
+        this.add.text(cx, cy + 4, skin.nombre, {
+            fontSize: '13px', fill: desbloqueada ? '#ffffff' : '#9ca3af', fontFamily: 'Arial Black', align: 'center'
+        }).setOrigin(0.5);
+
+        this.add.text(cx, cy + 32, estadoTexto, {
+            fontSize: '10px',
+            fill: equipada ? '#4ade80' : (desbloqueada ? '#facc15' : '#c4b5fd'),
+            fontStyle: 'bold', align: 'center'
+        }).setOrigin(0.5);
+
+        let zona = this.add.zone(cx, cy, w, h).setInteractive({ useHandCursor: true });
+        zona.on('pointerdown', onTap);
     }
 
     crearBoton(x, y, w, h, colorBase, colorBorde, texto, onClick) {
@@ -384,7 +594,7 @@ class ShopScene extends Phaser.Scene {
 // ESCENA: JUEGO PRINCIPAL
 // ============================================================
 let cucurella, suelo, obstaculos, coleccionables;
-let timerObstaculos, timerColeccionables, timerDificultad;
+let timerObstaculos, timerColeccionables, timerDificultad, timerSegundos;
 let score = 0, highScore = 0, contadorCopas = 0;
 let modoFiesta = false, lucesFiesta;
 let textoPuntos, textoBest, textoNivel, textoCopas, textoSuperCucu, tweenSuperCucu;
@@ -392,6 +602,10 @@ let gameOver = false;
 let saltosRestantes = 2;
 let velocidadObstaculos = 280, velocidadColeccionables = 230, retrasoSpawns = 1650, multiplicadorVelocidad = 1.0;
 let proximaSkinPorDesbloquear = null;
+let actualizandoMarcador = false;
+let segundosTranscurridos = 0;
+let tieneEscudo = false, iconoEscudo;
+let imanActivo = false, iconoIman;
 
 class MainScene extends Phaser.Scene {
     constructor() { super('MainScene'); }
@@ -415,6 +629,10 @@ class MainScene extends Phaser.Scene {
         retrasoSpawns = 1650;
         multiplicadorVelocidad = 1.0;
         proximaSkinPorDesbloquear = siguienteSkinBloqueada(highScore);
+        actualizandoMarcador = false;
+        segundosTranscurridos = 0;
+        tieneEscudo = false;
+        imanActivo = false;
 
         dibujarFondoEstadio(this);
         lucesFiesta = this.add.graphics().setDepth(10).setVisible(false);
@@ -455,6 +673,9 @@ class MainScene extends Phaser.Scene {
             fontSize: '32px', fill: '#facc15', fontFamily: 'Arial Black', stroke: '#000000', strokeThickness: 6
         }).setOrigin(0.5).setDepth(20).setVisible(false);
 
+        iconoEscudo = this.add.image(0, 0, 'escudo').setScale(0.5).setVisible(false).setDepth(15);
+        iconoIman = this.add.image(0, 0, 'iman').setScale(0.5).setVisible(false).setDepth(15);
+
         this.input.on('pointerdown', () => {
             AudioFX.init();
             if (gameOver) return;
@@ -470,6 +691,14 @@ class MainScene extends Phaser.Scene {
         timerObstaculos = this.time.addEvent({ delay: retrasoSpawns, callback: crearObstaculo, callbackScope: this, loop: true });
         timerColeccionables = this.time.addEvent({ delay: 1900, callback: crearColeccionable, callbackScope: this, loop: true });
         timerDificultad = this.time.addEvent({ delay: 9000, callback: incrementarDificultad, callbackScope: this, loop: true });
+        timerSegundos = this.time.addEvent({
+            delay: 1000, loop: true, callbackScope: this, callback: () => {
+                if (gameOver) return;
+                segundosTranscurridos++;
+                actualizarProgresoMisionMax('supervivencia', segundosTranscurridos, this);
+                actualizarMarcador(this);
+            }
+        });
     }
 
     update() {
@@ -492,9 +721,30 @@ class MainScene extends Phaser.Scene {
         });
 
         coleccionables.getChildren().forEach(c => {
-            c.body.setVelocityX(-velocidadColeccionables);
+            if (imanActivo) {
+                let dx = cucurella.x - c.x, dy = cucurella.y - c.y;
+                let dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 260) {
+                    c.body.setVelocity(dx * 4.5, dy * 4.5);
+                } else {
+                    c.body.setVelocityX(-velocidadColeccionables);
+                }
+            } else {
+                c.body.setVelocityX(-velocidadColeccionables);
+            }
             if (c.x < -60) c.destroy();
         });
+
+        if (tieneEscudo) {
+            iconoEscudo.setVisible(true).setPosition(cucurella.x, cucurella.y - 48);
+        } else {
+            iconoEscudo.setVisible(false);
+        }
+        if (imanActivo) {
+            iconoIman.setVisible(true).setPosition(cucurella.x, cucurella.y - (tieneEscudo ? 72 : 48));
+        } else {
+            iconoIman.setVisible(false);
+        }
     }
 }
 
@@ -530,7 +780,9 @@ function crearColeccionable() {
     if (gameOver) return;
     let rand = Math.random(), tipoKey = 'paella', puntos = 100;
 
-    if (rand > 0.70) { tipoKey = 'copa'; puntos = 500; }
+    if (rand > 0.96) { tipoKey = 'escudo'; puntos = 150; }
+    else if (rand > 0.91) { tipoKey = 'iman'; puntos = 150; }
+    else if (rand > 0.66) { tipoKey = 'copa'; puntos = 500; }
     else if (rand > 0.35) { tipoKey = 'cerveza'; puntos = 200; }
 
     let altura = (tipoKey === 'copa')
@@ -538,13 +790,27 @@ function crearColeccionable() {
         : Phaser.Math.Between(GAME_HEIGHT - 220, GAME_HEIGHT - 140);
 
     let c = coleccionables.create(GAME_WIDTH + 40, altura, tipoKey);
-    c.body.setAllowGravity(false); c.puntosExtra = puntos; c.esCopa = (tipoKey === 'copa');
+    c.body.setAllowGravity(false);
+    c.puntosExtra = puntos;
+    c.tipo = tipoKey;
+    c.esCopa = (tipoKey === 'copa');
 }
 
 function recogerColeccionable(player, item) {
     score += item.puntosExtra;
     AudioFX.item();
     mostrarTextoFlotante('+' + item.puntosExtra, item.x, item.y, this);
+
+    if (item.tipo === 'paella') incrementarProgresoMision('paellas', 1, this);
+    else if (item.tipo === 'cerveza') incrementarProgresoMision('cervezas', 1, this);
+    else if (item.tipo === 'escudo') {
+        tieneEscudo = true;
+        mostrarTextoFlotante('¡ESCUDO!', item.x, item.y - 30, this);
+    } else if (item.tipo === 'iman') {
+        imanActivo = true;
+        mostrarTextoFlotante('¡IMÁN!', item.x, item.y - 30, this);
+        this.time.delayedCall(6000, () => { imanActivo = false; });
+    }
 
     if (item.esCopa && !modoFiesta) {
         contadorCopas++;
@@ -576,6 +842,11 @@ function activarModoFiesta(scene) {
 }
 
 function actualizarMarcador(scene) {
+    if (actualizandoMarcador) return;
+    actualizandoMarcador = true;
+
+    actualizarProgresoMisionMax('puntuacion', score, scene);
+
     textoPuntos.setText('PTS: ' + score.toString().padStart(4, '0'));
     if (score > highScore) {
         highScore = score;
@@ -595,6 +866,8 @@ function actualizarMarcador(scene) {
         }
         proximaSkinPorDesbloquear = siguienteSkinBloqueada(highScore >= skinGanada.umbral ? highScore : skinGanada.umbral);
     }
+
+    actualizandoMarcador = false;
 }
 
 function generarEfectoHierba(x, y, scene) {
@@ -617,6 +890,17 @@ function chocar(player, obstaculo) {
     }
 
     if (gameOver) return;
+
+    if (tieneEscudo) {
+        tieneEscudo = false;
+        AudioFX.powerUp();
+        mostrarTextoFlotante('¡ESCUDO USADO!', obstaculo.x, obstaculo.y, this);
+        obstaculo.destroy();
+        cucurella.setTint(0x93c5fd);
+        this.time.delayedCall(250, () => { if (!gameOver && !modoFiesta) cucurella.clearTint(); });
+        return;
+    }
+
     gameOver = true;
 
     this.physics.pause();
@@ -626,6 +910,7 @@ function chocar(player, obstaculo) {
     if (timerObstaculos) timerObstaculos.destroy();
     if (timerColeccionables) timerColeccionables.destroy();
     if (timerDificultad) timerDificultad.destroy();
+    if (timerSegundos) timerSegundos.destroy();
 
     let cartel = this.add.graphics().setDepth(200);
     cartel.fillStyle(0x0f172a, 0.95); cartel.fillRoundedRect(GAME_WIDTH/2 - 140, GAME_HEIGHT/2 - 110, 280, 220, 16);
