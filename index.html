@@ -1,951 +1,1294 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cucu-Run</title>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background-color: #0b132b; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Arial Black', sans-serif; }
-        canvas { border-radius: 12px; box-shadow: 0 12px 35px rgba(0,0,0,0.9); }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Penalty Keeper</title>
+
+<style>
+*{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+    -webkit-tap-highlight-color:transparent;
+}
+
+html,body{
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    font-family:Arial,Helvetica,sans-serif;
+    background:#071b12;
+    color:white;
+    touch-action:none;
+}
+
+body{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+#game{
+    width:100%;
+    max-width:480px;
+    height:100%;
+    max-height:900px;
+    position:relative;
+    overflow:hidden;
+    background:
+        linear-gradient(to bottom,
+        #071b12 0%,
+        #0b3d25 35%,
+        #08752e 70%,
+        #075b25 100%);
+}
+
+/* -------------------------
+   PANTALLA INICIAL
+------------------------- */
+
+.screen{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    z-index:20;
+}
+
+#startScreen{
+    background:
+        radial-gradient(circle at 50% 35%,rgba(35,190,91,.25),transparent 35%),
+        linear-gradient(160deg,#04140d,#0a4728);
+}
+
+.logo{
+    font-size:42px;
+    font-weight:1000;
+    text-align:center;
+    line-height:.95;
+    letter-spacing:-2px;
+    text-shadow:0 5px 0 rgba(0,0,0,.25);
+}
+
+.logo span{
+    color:#6dff9e;
+}
+
+.subtitle{
+    margin-top:16px;
+    color:#b8d9c4;
+    font-size:15px;
+}
+
+.startKeeper{
+    font-size:105px;
+    margin:35px 0 20px;
+    filter:drop-shadow(0 10px 8px rgba(0,0,0,.35));
+}
+
+button{
+    border:0;
+    font-weight:900;
+    cursor:pointer;
+}
+
+.startButton{
+    background:#65f593;
+    color:#052313;
+    font-size:21px;
+    padding:18px 55px;
+    border-radius:50px;
+    box-shadow:0 7px 0 #27a957;
+}
+
+.startButton:active{
+    transform:translateY(5px);
+    box-shadow:0 2px 0 #27a957;
+}
+
+.smallInfo{
+    margin-top:25px;
+    font-size:13px;
+    color:#8fbda0;
+}
+
+/* -------------------------
+   HUD
+------------------------- */
+
+#hud{
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    padding:16px;
+    display:flex;
+    justify-content:space-between;
+    z-index:10;
+}
+
+.hudBox{
+    background:rgba(0,0,0,.3);
+    backdrop-filter:blur(8px);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:14px;
+    padding:8px 14px;
+    text-align:center;
+    min-width:85px;
+}
+
+.hudLabel{
+    font-size:10px;
+    text-transform:uppercase;
+    color:#a9c8b5;
+    font-weight:bold;
+}
+
+.hudValue{
+    font-size:24px;
+    font-weight:1000;
+    margin-top:2px;
+}
+
+#streakValue{
+    color:#71ff9e;
+}
+
+/* -------------------------
+   CAMPO
+------------------------- */
+
+#field{
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:0;
+    height:72%;
+    background:
+        repeating-linear-gradient(
+            90deg,
+            rgba(255,255,255,.025) 0,
+            rgba(255,255,255,.025) 12%,
+            transparent 12%,
+            transparent 24%
+        ),
+        linear-gradient(to bottom,#07943c,#066b2c);
+}
+
+/* líneas del campo */
+
+.penaltyArea{
+    position:absolute;
+    width:76%;
+    height:35%;
+    left:12%;
+    top:20%;
+    border:3px solid rgba(255,255,255,.75);
+    border-bottom:0;
+}
+
+.goalArea{
+    position:absolute;
+    width:42%;
+    height:18%;
+    left:29%;
+    top:20%;
+    border:3px solid rgba(255,255,255,.75);
+    border-bottom:0;
+}
+
+.penaltySpot{
+    position:absolute;
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:white;
+    left:50%;
+    top:47%;
+    transform:translate(-50%,-50%);
+}
+
+/* -------------------------
+   PORTERÍA
+------------------------- */
+
+#goal{
+    position:absolute;
+    width:74%;
+    height:29%;
+    top:8%;
+    left:13%;
+    border:8px solid white;
+    border-bottom:10px solid white;
+    background:
+        repeating-linear-gradient(
+            90deg,
+            rgba(255,255,255,.16) 0,
+            rgba(255,255,255,.16) 2px,
+            transparent 2px,
+            transparent 18px
+        ),
+        repeating-linear-gradient(
+            0deg,
+            rgba(255,255,255,.13) 0,
+            rgba(255,255,255,.13) 2px,
+            transparent 2px,
+            transparent 18px
+        ),
+        rgba(255,255,255,.04);
+    box-shadow:
+        0 0 0 3px rgba(0,0,0,.15),
+        inset 0 0 30px rgba(0,0,0,.15);
+}
+
+/* -------------------------
+   PORTERO
+------------------------- */
+
+#keeper{
+    position:absolute;
+    width:80px;
+    height:125px;
+    left:50%;
+    top:25%;
+    transform:translateX(-50%);
+    z-index:6;
+    transition:
+        left .28s cubic-bezier(.2,.9,.3,1),
+        top .28s cubic-bezier(.2,.9,.3,1),
+        transform .28s cubic-bezier(.2,.9,.3,1);
+}
+
+.keeperBody{
+    position:absolute;
+    width:52px;
+    height:70px;
+    background:#ffcf35;
+    border-radius:25px 25px 14px 14px;
+    left:14px;
+    top:32px;
+    box-shadow:0 5px 0 rgba(0,0,0,.2);
+}
+
+.keeperHead{
+    position:absolute;
+    width:43px;
+    height:43px;
+    background:#d99665;
+    border-radius:50%;
+    left:19px;
+    top:0;
+    z-index:2;
+}
+
+.keeperHair{
+    position:absolute;
+    width:43px;
+    height:18px;
+    background:#351b12;
+    border-radius:25px 25px 5px 5px;
+    left:19px;
+    top:0;
+    z-index:3;
+}
+
+.arm{
+    position:absolute;
+    width:18px;
+    height:60px;
+    background:#ffcf35;
+    border-radius:15px;
+    top:38px;
+}
+
+.arm.left{
+    left:0;
+    transform:rotate(28deg);
+}
+
+.arm.right{
+    right:0;
+    transform:rotate(-28deg);
+}
+
+.glove{
+    position:absolute;
+    width:25px;
+    height:25px;
+    background:#f2f2f2;
+    border-radius:50%;
+    top:83px;
+}
+
+.arm.left .glove{
+    left:-7px;
+}
+
+.arm.right .glove{
+    right:-7px;
+}
+
+.leg{
+    position:absolute;
+    width:19px;
+    height:50px;
+    background:#222;
+    border-radius:10px;
+    top:95px;
+}
+
+.leg.left{
+    left:21px;
+}
+
+.leg.right{
+    right:21px;
+}
+
+/* -------------------------
+   BALÓN
+------------------------- */
+
+#ball{
+    position:absolute;
+    width:30px;
+    height:30px;
+    border-radius:50%;
+    background:white;
+    left:50%;
+    top:58%;
+    transform:translate(-50%,-50%);
+    z-index:8;
+    box-shadow:0 4px 7px rgba(0,0,0,.35);
+    transition:none;
+}
+
+#ball:after{
+    content:"⚽";
+    position:absolute;
+    inset:0;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:27px;
+}
+
+/* -------------------------
+   LANZADOR
+------------------------- */
+
+#shooter{
+    position:absolute;
+    left:50%;
+    bottom:7%;
+    transform:translateX(-50%);
+    font-size:62px;
+    z-index:5;
+    filter:drop-shadow(0 6px 4px rgba(0,0,0,.3));
+}
+
+.shooterName{
+    position:absolute;
+    bottom:2%;
+    left:50%;
+    transform:translateX(-50%);
+    background:rgba(0,0,0,.35);
+    padding:6px 12px;
+    border-radius:20px;
+    font-size:12px;
+    white-space:nowrap;
+}
+
+/* -------------------------
+   INDICACIONES
+------------------------- */
+
+#instruction{
+    position:absolute;
+    bottom:3%;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:12;
+    background:rgba(0,0,0,.48);
+    padding:9px 18px;
+    border-radius:30px;
+    font-size:14px;
+    font-weight:bold;
+    text-align:center;
+}
+
+/* -------------------------
+   RESULTADO
+------------------------- */
+
+#message{
+    position:absolute;
+    top:48%;
+    left:50%;
+    transform:translate(-50%,-50%) scale(.7);
+    z-index:30;
+    opacity:0;
+    pointer-events:none;
+    text-align:center;
+    font-size:42px;
+    font-weight:1000;
+    text-shadow:0 5px 0 rgba(0,0,0,.35);
+    white-space:nowrap;
+    transition:.25s;
+}
+
+#message.show{
+    opacity:1;
+    transform:translate(-50%,-50%) scale(1);
+}
+
+/* -------------------------
+   GAME OVER
+------------------------- */
+
+#gameOver{
+    background:rgba(2,12,8,.94);
+    z-index:50;
+    display:none;
+}
+
+.overTitle{
+    font-size:38px;
+    font-weight:1000;
+}
+
+.overScore{
+    margin-top:15px;
+    font-size:21px;
+    color:#b8d9c4;
+}
+
+.bigScore{
+    font-size:80px;
+    font-weight:1000;
+    color:#6dff9e;
+    margin:5px 0 25px;
+}
+
+.newRecord{
+    color:#ffd43b;
+    font-size:18px;
+    font-weight:900;
+    margin-bottom:20px;
+}
+
+.restartButton{
+    background:#65f593;
+    color:#052313;
+    padding:16px 40px;
+    border-radius:40px;
+    font-size:19px;
+}
+
+/* -------------------------
+   EFECTOS
+------------------------- */
+
+.shake{
+    animation:shake .35s;
+}
+
+@keyframes shake{
+    0%,100%{transform:translateX(0)}
+    25%{transform:translateX(-8px)}
+    75%{transform:translateX(8px)}
+}
+
+.goalFlash{
+    animation:flash .35s;
+}
+
+@keyframes flash{
+    0%{filter:brightness(1)}
+    50%{filter:brightness(2)}
+    100%{filter:brightness(1)}
+}
+
+.ballSave{
+    animation:save .3s forwards;
+}
+
+@keyframes save{
+    50%{
+        transform:translate(-50%,-50%) scale(1.3);
+    }
+}
+
+.hidden{
+    display:none!important;
+}
+
+/* -------------------------
+   BOTONES DE CONTROL
+------------------------- */
+
+#controls{
+    position:absolute;
+    bottom:10%;
+    left:0;
+    width:100%;
+    display:flex;
+    justify-content:center;
+    gap:12px;
+    z-index:15;
+}
+
+.control{
+    width:75px;
+    height:55px;
+    border-radius:18px;
+    background:rgba(255,255,255,.13);
+    border:2px solid rgba(255,255,255,.25);
+    color:white;
+    font-size:24px;
+    backdrop-filter:blur(5px);
+}
+
+.control:active{
+    background:rgba(255,255,255,.3);
+    transform:scale(.95);
+}
+
+@media(max-height:700px){
+    #goal{
+        height:27%;
+    }
+
+    #keeper{
+        transform:translateX(-50%) scale(.85);
+    }
+
+    .logo{
+        font-size:36px;
+    }
+
+    .startKeeper{
+        margin:20px 0;
+    }
+}
+</style>
 </head>
+
 <body>
 
+<div id="game">
+
+    <!-- PANTALLA INICIAL -->
+    <div id="startScreen" class="screen">
+
+        <div class="logo">
+            PENALTY<br>
+            <span>KEEPER</span>
+        </div>
+
+        <div class="startKeeper">🧤</div>
+
+        <div class="subtitle">
+            ¿Cuántos penaltis puedes parar?
+        </div>
+
+        <button class="startButton" onclick="startGame()">
+            ⚽ EMPEZAR
+        </button>
+
+        <div class="smallInfo">
+            Récord: <span id="startBest">0</span>
+        </div>
+
+    </div>
+
+
+    <!-- HUD -->
+    <div id="hud" class="hidden">
+
+        <div class="hudBox">
+            <div class="hudLabel">Racha</div>
+            <div class="hudValue" id="streakValue">0</div>
+        </div>
+
+        <div class="hudBox">
+            <div class="hudLabel">Récord</div>
+            <div class="hudValue" id="bestValue">0</div>
+        </div>
+
+    </div>
+
+
+    <!-- CAMPO -->
+    <div id="field" class="hidden">
+
+        <div id="goal">
+
+            <div id="keeper">
+
+                <div class="keeperHead"></div>
+                <div class="keeperHair"></div>
+
+                <div class="arm left">
+                    <div class="glove"></div>
+                </div>
+
+                <div class="arm right">
+                    <div class="glove"></div>
+                </div>
+
+                <div class="keeperBody"></div>
+
+                <div class="leg left"></div>
+                <div class="leg right"></div>
+
+            </div>
+
+        </div>
+
+        <div class="penaltyArea"></div>
+        <div class="goalArea"></div>
+        <div class="penaltySpot"></div>
+
+        <div id="ball"></div>
+
+        <div id="shooter">🧑🏻</div>
+        <div class="shooterName" id="shooterName">
+            JUGADOR
+        </div>
+
+    </div>
+
+
+    <!-- CONTROLES -->
+    <div id="controls" class="hidden">
+
+        <button class="control" onclick="chooseDirection('left')">
+            ⬅️
+        </button>
+
+        <button class="control" onclick="chooseDirection('center')">
+            ⬆️
+        </button>
+
+        <button class="control" onclick="chooseDirection('right')">
+            ➡️
+        </button>
+
+    </div>
+
+
+    <div id="instruction" class="hidden">
+        ¿Dónde crees que irá?
+    </div>
+
+
+    <div id="message"></div>
+
+
+    <!-- GAME OVER -->
+    <div id="gameOver" class="screen">
+
+        <div class="overTitle">
+            ⚽ ¡GOL!
+        </div>
+
+        <div class="overScore">
+            Has parado
+        </div>
+
+        <div class="bigScore" id="finalScore">
+            0
+        </div>
+
+        <div class="overScore">
+            penaltis consecutivos
+        </div>
+
+        <div class="newRecord hidden" id="newRecord">
+            🏆 ¡NUEVO RÉCORD!
+        </div>
+
+        <button class="restartButton" onclick="startGame()">
+            🔄 VOLVER A JUGAR
+        </button>
+
+    </div>
+
+</div>
+
+
 <script>
-const GAME_WIDTH = 400;
-const GAME_HEIGHT = 700;
 
-function obtenerHighScore() {
-    let d = localStorage.getItem('cucu_high_score');
-    return d ? Number(d) || 0 : 0;
-}
+/* ==========================================
+   VARIABLES
+========================================== */
 
-function guardarHighScore(val) {
-    localStorage.setItem('cucu_high_score', val);
-}
+let streak = 0;
 
-function obtenerSkinSeleccionada() {
-    return localStorage.getItem('cucu_skin_seleccionada') || 'default';
-}
+let best = Number(localStorage.getItem("penaltyBest")) || 0;
 
-function guardarSkinSeleccionada(id) {
-    localStorage.setItem('cucu_skin_seleccionada', id);
-}
+let acceptingInput = false;
 
-function formatNum(n) {
-    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-}
+let currentDirection = null;
 
-// Skins desbloqueables por puntuación (umbral = récord necesario para desbloquear)
-const SKINS = [
-    { id: 'default',    nombre: 'Clásico',     umbral: 0,     colores: { jersey: '#dc2626', trim: '#facc15', shorts: '#1e3a8a', socks: '#ffffff' } },
-    { id: 'eibar',      nombre: 'Eibar',       umbral: 15000, colores: { jersey: '#0ea5e9', trim: '#1e1b4b', shorts: '#1e1b4b', socks: '#0ea5e9' } },
-    { id: 'getafe',     nombre: 'Getafe',      umbral: 25000, colores: { jersey: '#1e3a5f', trim: '#ffffff', shorts: '#1e3a5f', socks: '#1e3a5f' } },
-    { id: 'brighton',   nombre: 'Brighton',    umbral: 40000, colores: { jersey: '#0c4da2', trim: '#ffffff', shorts: '#ffffff', socks: '#ffffff' } },
-    { id: 'chelsea',    nombre: 'Chelsea',     umbral: 60000, colores: { jersey: '#034694', trim: '#034694', shorts: '#034694', socks: '#ffffff' } },
-    { id: 'realmadrid', nombre: 'Real Madrid', umbral: 85000, colores: { jersey: '#ffffff', trim: '#d4af37', shorts: '#ffffff', socks: '#ffffff' } }
+let touchStartX = 0;
+let touchStartY = 0;
+
+const directions = ["left","center","right"];
+
+const shooters = [
+    "🧑🏻",
+    "🧑🏼",
+    "🧑🏽",
+    "🧑🏾",
+    "🧑🏼‍🦱",
+    "🧑🏽‍🦱",
+    "🧔🏻",
+    "🧔🏽"
 ];
 
-function skinsDesbloqueadas(highScore) {
-    return SKINS.filter(s => highScore >= s.umbral);
-}
-
-function siguienteSkinBloqueada(highScore) {
-    return SKINS.find(s => highScore < s.umbral) || null;
-}
-
-// Skins premium: se compran con dinero real (aquí simulado), no por puntos
-const PREMIUM_SKINS = [
-    { id: 'retro',  nombre: 'Retro Clásica',  precio: '1,99€', colores: { jersey: '#f3e6c8', trim: '#7f1d1d', shorts: '#1e293b', socks: '#f3e6c8' } },
-    { id: 'dorada', nombre: 'Edición Dorada', precio: '1,99€', colores: { jersey: '#d4af37', trim: '#111111', shorts: '#111111', socks: '#d4af37' } }
+const names = [
+    "EL NOVATO",
+    "EL ESPECIALISTA",
+    "EL FRANCOTIRADOR",
+    "EL MISTERIOSO",
+    "EL MATADOR",
+    "EL TRICKSTER",
+    "EL CRACK",
+    "EL REY DEL PENALTI"
 ];
 
-const TODAS_LAS_SKINS = SKINS.concat(PREMIUM_SKINS);
 
-function obtenerSkinsCompradas() {
-    try { return JSON.parse(localStorage.getItem('cucu_skins_premium_compradas') || '[]'); }
-    catch (e) { return []; }
-}
+/* ==========================================
+   ELEMENTOS
+========================================== */
 
-function guardarSkinsCompradas(arr) {
-    localStorage.setItem('cucu_skins_premium_compradas', JSON.stringify(arr));
-}
+const startScreen = document.getElementById("startScreen");
+const field = document.getElementById("field");
+const hud = document.getElementById("hud");
+const controls = document.getElementById("controls");
+const instruction = document.getElementById("instruction");
+const gameOver = document.getElementById("gameOver");
 
-function skinPremiumComprada(id) {
-    return obtenerSkinsCompradas().includes(id);
-}
+const keeper = document.getElementById("keeper");
+const ball = document.getElementById("ball");
 
-function comprarSkinPremium(id) {
-    let compradas = obtenerSkinsCompradas();
-    if (!compradas.includes(id)) {
-        compradas.push(id);
-        guardarSkinsCompradas(compradas);
-    }
-}
+const streakValue = document.getElementById("streakValue");
+const bestValue = document.getElementById("bestValue");
 
-// NOTA: esto es una SIMULACIÓN de compra (no cobra dinero real).
-// Para cobrar de verdad haría falta integrar una pasarela de pago
-// (Stripe/PayPal en web, o las compras integradas de Google Play / App Store en una app).
-function simularCompra(scene, skin) {
-    AudioFX.init();
-    let confirmado = window.confirm(
-        'Comprar "' + skin.nombre + '" por ' + skin.precio + '\n\n' +
-        'Esto es una demo: no se realizará ningún cargo real.\n' +
-        'Para cobrar de verdad haría falta conectar una pasarela de pago.\n\n' +
-        '¿Confirmar compra simulada?'
-    );
-    if (confirmado) {
-        comprarSkinPremium(skin.id);
-        AudioFX.powerUp();
-        scene.scene.restart();
-    } else {
-        AudioFX.denegado();
-    }
-}
+const message = document.getElementById("message");
 
-// ============================================================
-// MISIONES DIARIAS
-// ============================================================
-const MISSIONS_POOL = [
-    { id: 'paellas',       desc: 'Recoge {n} paellas',                  target: 15 },
-    { id: 'cervezas',      desc: 'Recoge {n} cervezas',                 target: 10 },
-    { id: 'puntuacion',    desc: 'Consigue {n} pts en una partida',     target: 3000 },
-    { id: 'supervivencia', desc: 'Sobrevive {n} segundos en una partida', target: 45 }
-];
+const shooter = document.getElementById("shooter");
+const shooterName = document.getElementById("shooterName");
 
-function obtenerFechaHoy() {
-    return new Date().toISOString().slice(0, 10);
-}
+document.getElementById("startBest").textContent = best;
 
-function hashTexto(str) {
-    let h = 0;
-    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
-    return Math.abs(h);
-}
 
-function misionesDeHoy() {
-    let h = hashTexto(obtenerFechaHoy());
-    let idx1 = h % MISSIONS_POOL.length;
-    let idx2 = (idx1 + 1 + (h % 3)) % MISSIONS_POOL.length;
-    if (idx2 === idx1) idx2 = (idx2 + 1) % MISSIONS_POOL.length;
-    return [MISSIONS_POOL[idx1], MISSIONS_POOL[idx2]];
-}
+/* ==========================================
+   EMPEZAR
+========================================== */
 
-function obtenerProgresoMisiones() {
-    let fecha = obtenerFechaHoy();
-    let raw = localStorage.getItem('cucu_misiones');
-    let datos = null;
-    try { datos = raw ? JSON.parse(raw) : null; } catch (e) { datos = null; }
-    if (!datos || datos.fecha !== fecha) {
-        datos = { fecha: fecha, progreso: {}, completadas: [] };
-        localStorage.setItem('cucu_misiones', JSON.stringify(datos));
-    }
-    return datos;
-}
+function startGame(){
 
-function guardarProgresoMisiones(datos) {
-    localStorage.setItem('cucu_misiones', JSON.stringify(datos));
-}
+    streak = 0;
 
-// modo: 'add' suma cantidad, 'max' se queda con el mayor valor visto
-function procesarProgresoMision(tipo, valor, modo, scene) {
-    let hoy = misionesDeHoy();
-    let mision = hoy.find(m => m.id === tipo);
-    if (!mision) return;
+    acceptingInput = false;
 
-    let datos = obtenerProgresoMisiones();
-    if (datos.completadas.includes(tipo)) return;
+    updateHUD();
 
-    let actual = datos.progreso[tipo] || 0;
-    let nuevo = modo === 'add' ? actual + valor : Math.max(actual, valor);
-    datos.progreso[tipo] = nuevo;
+    startScreen.classList.add("hidden");
 
-    if (nuevo >= mision.target) {
-        datos.completadas.push(tipo);
-        if (scene && typeof score !== 'undefined') {
-            score += 400;
-            if (typeof cucurella !== 'undefined' && cucurella) {
-                mostrarTextoFlotante('¡MISIÓN CUMPLIDA! +400', cucurella.x, cucurella.y - 60, scene);
-            }
-            AudioFX.powerUp();
-        }
-    }
-    guardarProgresoMisiones(datos);
-}
+    gameOver.style.display = "none";
 
-function incrementarProgresoMision(tipo, cantidad, scene) {
-    procesarProgresoMision(tipo, cantidad, 'add', scene);
-}
+    field.classList.remove("hidden");
+    hud.classList.remove("hidden");
+    controls.classList.remove("hidden");
+    instruction.classList.remove("hidden");
 
-function actualizarProgresoMisionMax(tipo, valor, scene) {
-    procesarProgresoMision(tipo, valor, 'max', scene);
-}
+    resetKeeper();
 
-const AudioFX = {
-    ctx: null,
-    init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
-    salto() {
-        if (!this.ctx) return;
-
-        let osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.type = 'sine'; osc.frequency.setValueAtTime(150, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.12);
-        gain.gain.setValueAtTime(0.3, this.ctx.currentTime); gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
-        osc.start(); osc.stop(this.ctx.currentTime + 0.12);
-    },
-    item() {
-        if (!this.ctx) return;
-        let osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.type = 'triangle'; osc.frequency.setValueAtTime(523, this.ctx.currentTime);
-        osc.frequency.setValueAtTime(659, this.ctx.currentTime + 0.08);
-        gain.gain.setValueAtTime(0.3, this.ctx.currentTime); gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
-        osc.start(); osc.stop(this.ctx.currentTime + 0.2);
-    },
-    powerUp() {
-        if (!this.ctx) return;
-        let osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.type = 'square'; osc.frequency.setValueAtTime(300, this.ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(900, this.ctx.currentTime + 0.5);
-        gain.gain.setValueAtTime(0.3, this.ctx.currentTime); gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
-        osc.start(); osc.stop(this.ctx.currentTime + 0.5);
-    },
-    pitido() {
-        if (!this.ctx) return;
-        let osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(2800, this.ctx.currentTime);
-        gain.gain.setValueAtTime(0.4, this.ctx.currentTime); gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
-        osc.start(); osc.stop(this.ctx.currentTime + 0.4);
-    },
-    click() {
-        if (!this.ctx) return;
-        let osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.type = 'sine'; osc.frequency.setValueAtTime(600, this.ctx.currentTime);
-        gain.gain.setValueAtTime(0.25, this.ctx.currentTime); gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
-        osc.start(); osc.stop(this.ctx.currentTime + 0.1);
-    },
-    denegado() {
-        if (!this.ctx) return;
-        let osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.type = 'square'; osc.frequency.setValueAtTime(180, this.ctx.currentTime);
-        osc.frequency.setValueAtTime(120, this.ctx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.25, this.ctx.currentTime); gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.22);
-        osc.start(); osc.stop(this.ctx.currentTime + 0.22);
-    }
-};
-
-// --- Generación de texturas (pixel art vía canvas) ---
-
-function dibujarCucurellaSkin(scene, key, colores) {
-    if (scene.textures.exists(key)) return;
-    let canvasC = scene.textures.createCanvas(key, 64, 84);
-    let ctxC = canvasC.context;
-    ctxC.fillStyle = '#1c100b';
-    ctxC.beginPath(); ctxC.arc(32, 24, 25, 0, Math.PI * 2); ctxC.fill();
-    ctxC.beginPath(); ctxC.arc(12, 32, 16, 0, Math.PI * 2); ctxC.fill();
-    ctxC.beginPath(); ctxC.arc(52, 32, 16, 0, Math.PI * 2); ctxC.fill();
-    ctxC.fillStyle = '#f3c193'; ctxC.fillRect(20, 22, 24, 22);
-    ctxC.fillStyle = '#ffffff'; ctxC.fillRect(24, 28, 6, 6); ctxC.fillRect(34, 28, 6, 6);
-    ctxC.fillStyle = '#000000'; ctxC.fillRect(26, 30, 3, 3); ctxC.fillRect(36, 30, 3, 3);
-    ctxC.fillStyle = '#1c100b'; ctxC.fillRect(26, 38, 12, 3);
-    ctxC.fillStyle = colores.jersey; ctxC.fillRect(16, 44, 32, 22);
-    ctxC.fillStyle = colores.trim; ctxC.fillRect(16, 44, 4, 22); ctxC.fillRect(44, 44, 4, 22);
-    ctxC.fillStyle = colores.shorts; ctxC.fillRect(16, 66, 32, 14);
-    ctxC.fillStyle = colores.socks; ctxC.fillRect(16, 80, 12, 4); ctxC.fillRect(36, 80, 12, 4);
-    canvasC.refresh();
-}
-
-function generarSkinsCucurella(scene) {
-    TODAS_LAS_SKINS.forEach(skin => dibujarCucurellaSkin(scene, 'cucurella_' + skin.id, skin.colores));
-}
-
-function generarTexturasComunes(scene) {
-    if (scene.textures.exists('arbitro')) return;
-
-    let canvasA = scene.textures.createCanvas('arbitro', 52, 72).context;
-    canvasA.fillStyle = '#f5d0a9'; canvasA.beginPath(); canvasA.arc(22, 14, 10, 0, Math.PI * 2); canvasA.fill();
-    canvasA.fillStyle = '#0f172a'; canvasA.beginPath(); canvasA.arc(22, 10, 10, Math.PI, Math.PI * 2); canvasA.fill();
-    canvasA.fillStyle = '#eab308'; canvasA.fillRect(8, 24, 28, 24);
-    canvasA.fillStyle = '#0f172a'; canvasA.fillRect(14, 24, 6, 24); canvasA.fillRect(26, 24, 6, 24);
-    canvasA.fillStyle = '#f5d0a9'; canvasA.fillRect(36, 12, 6, 18);
-    canvasA.fillStyle = '#dc2626'; canvasA.fillRect(34, 0, 14, 20);
-    canvasA.fillStyle = '#0f172a'; canvasA.fillRect(8, 48, 28, 14);
-    canvasA.fillStyle = '#ffffff'; canvasA.fillRect(8, 62, 10, 10); canvasA.fillRect(26, 62, 10, 10);
-    scene.textures.get('arbitro').refresh();
-
-    ['calvo', 'rubio', 'tupe', 'rizado'].forEach(tipo => {
-        let ctxR = scene.textures.createCanvas('rival_' + tipo, 48, 68).context;
-        ctxR.fillStyle = '#f5d0a9'; ctxR.beginPath(); ctxR.arc(24, 14, 11, 0, Math.PI * 2); ctxR.fill();
-        if (tipo === 'calvo') { ctxR.fillStyle = '#ffffff'; ctxR.beginPath(); ctxR.arc(20, 9, 3, 0, Math.PI * 2); ctxR.fill(); }
-        else if (tipo === 'rubio') { ctxR.fillStyle = '#facc15'; ctxR.beginPath(); ctxR.arc(24, 10, 11, Math.PI, Math.PI * 2); ctxR.fill(); }
-        else if (tipo === 'tupe') { ctxR.fillStyle = '#27272a'; ctxR.fillRect(14, 3, 20, 10); }
-        else if (tipo === 'rizado') { ctxR.fillStyle = '#78350f'; ctxR.beginPath(); ctxR.arc(16, 9, 7, 0, Math.PI * 2); ctxR.fill(); ctxR.beginPath(); ctxR.arc(24, 7, 7, 0, Math.PI * 2); ctxR.fill(); }
-        ctxR.fillStyle = '#ffffff'; ctxR.fillRect(8, 25, 32, 26);
-        ctxR.fillStyle = '#0284c7'; ctxR.fillRect(8, 25, 8, 26); ctxR.fillRect(24, 25, 8, 26);
-        ctxR.fillStyle = '#0f172a'; ctxR.fillRect(8, 51, 32, 14);
-        ctxR.fillStyle = '#ffffff'; ctxR.fillRect(8, 65, 12, 3); ctxR.fillRect(28, 65, 12, 3);
-        scene.textures.get('rival_' + tipo).refresh();
-    });
-
-    let ctxP = scene.textures.createCanvas('paella', 44, 44).context;
-    ctxP.fillStyle = '#334155'; ctxP.fillRect(2, 18, 40, 8);
-    ctxP.fillStyle = '#0f172a'; ctxP.beginPath(); ctxP.arc(22, 22, 18, 0, Math.PI * 2); ctxP.fill();
-    ctxP.fillStyle = '#eab308'; ctxP.beginPath(); ctxP.arc(22, 22, 15, 0, Math.PI * 2); ctxP.fill();
-    ctxP.fillStyle = '#dc2626'; ctxP.fillRect(16, 14, 5, 5); ctxP.fillRect(24, 22, 5, 5);
-    ctxP.fillStyle = '#16a34a'; ctxP.fillRect(22, 16, 4, 4); ctxP.fillRect(14, 24, 4, 4);
-    scene.textures.get('paella').refresh();
-
-    let ctxCer = scene.textures.createCanvas('cerveza', 28, 48).context;
-    ctxCer.fillStyle = '#92400e'; ctxCer.fillRect(8, 18, 12, 28); ctxCer.fillRect(11, 4, 6, 14);
-    ctxCer.fillStyle = '#dc2626'; ctxCer.fillRect(10, 0, 8, 4);
-    ctxCer.fillStyle = '#fef08a'; ctxCer.fillRect(8, 26, 12, 12);
-    scene.textures.get('cerveza').refresh();
-
-    let ctxCop = scene.textures.createCanvas('copa', 36, 50).context;
-    ctxCop.fillStyle = '#eab308'; ctxCop.fillRect(8, 40, 20, 8); ctxCop.fillRect(12, 24, 12, 16);
-    ctxCop.beginPath(); ctxCop.arc(18, 15, 13, 0, Math.PI * 2); ctxCop.fill();
-    ctxCop.fillStyle = '#166534'; ctxCop.fillRect(8, 43, 20, 3);
-    scene.textures.get('copa').refresh();
-
-    // Power-up: escudo (bloquea un golpe)
-    let ctxEsc = scene.textures.createCanvas('escudo', 36, 42).context;
-    ctxEsc.fillStyle = '#1d4ed8';
-    ctxEsc.beginPath();
-    ctxEsc.moveTo(4, 4); ctxEsc.lineTo(32, 4); ctxEsc.lineTo(32, 22); ctxEsc.lineTo(18, 40); ctxEsc.lineTo(4, 22);
-    ctxEsc.closePath(); ctxEsc.fill();
-    ctxEsc.fillStyle = '#93c5fd';
-    ctxEsc.beginPath();
-    ctxEsc.moveTo(9, 9); ctxEsc.lineTo(27, 9); ctxEsc.lineTo(27, 21); ctxEsc.lineTo(18, 33); ctxEsc.lineTo(9, 21);
-    ctxEsc.closePath(); ctxEsc.fill();
-    scene.textures.get('escudo').refresh();
-
-    // Power-up: imán (atrae coleccionables)
-    let ctxIm = scene.textures.createCanvas('iman', 36, 36).context;
-    ctxIm.fillStyle = '#b91c1c';
-    ctxIm.fillRect(6, 8, 9, 24); ctxIm.fillRect(21, 8, 9, 24);
-    ctxIm.beginPath(); ctxIm.arc(18, 26, 12, 0, Math.PI); ctxIm.fill();
-    ctxIm.fillStyle = '#e5e7eb';
-    ctxIm.fillRect(6, 4, 9, 7); ctxIm.fillRect(21, 4, 9, 7);
-    scene.textures.get('iman').refresh();
-
-    let ctxS = scene.textures.createCanvas('suelo', GAME_WIDTH, 70).context;
-    ctxS.fillStyle = '#15803d'; ctxS.fillRect(0, 0, GAME_WIDTH, 70);
-    ctxS.fillStyle = '#ffffff'; ctxS.fillRect(0, 0, GAME_WIDTH, 6);
-    scene.textures.get('suelo').refresh();
-
-    let ctxH = scene.textures.createCanvas('p_hierba', 6, 6).context;
-    ctxH.fillStyle = '#4ade80'; ctxH.fillRect(0, 0, 6, 6);
-    scene.textures.get('p_hierba').refresh();
-}
-
-
-function dibujarFondoEstadio(scene) {
-    let bg = scene.add.graphics();
-    bg.fillStyle(0x0f172a, 1); bg.fillRect(0, 0, GAME_WIDTH, 180);
-    bg.fillStyle(0xfef08a, 0.2);
-    bg.fillTriangle(40, 0, 0, 220, 150, 220); bg.fillTriangle(GAME_WIDTH - 40, 0, GAME_WIDTH, 220, GAME_WIDTH - 150, 220);
-    bg.fillStyle(0xffffff, 0.9); bg.fillRect(30, 10, 40, 12); bg.fillRect(GAME_WIDTH - 70, 10, 40, 12);
-
-    let coloresPublico = [0xdc2626, 0xef4444, 0xfacc15, 0x1d4ed8, 0xffffff, 0x475569];
-    for (let yGrada = 80; yGrada < 220; yGrada += 12) {
-        bg.fillStyle(0x334155, 1); bg.fillRect(0, yGrada, GAME_WIDTH, 3);
-        for (let xG = 6; xG < GAME_WIDTH; xG += 9) {
-            bg.fillStyle(coloresPublico[Math.floor(Math.random() * coloresPublico.length)], 0.85);
-            bg.fillRect(xG, yGrada - 7, 6, 7);
-            bg.fillStyle(0xf3c193, 0.85); bg.fillRect(xG + 1, yGrada - 10, 4, 3);
-        }
-    }
-
-    bg.fillStyle(0x1e293b, 1); bg.fillRect(0, 215, GAME_WIDTH, 15);
-    bg.fillStyle(0x3b82f6, 1); bg.fillRect(0, 220, GAME_WIDTH, 5);
-
-    for (let y = 230; y < GAME_HEIGHT - 70; y += 50) {
-        bg.fillStyle((Math.floor(y / 50)) % 2 === 0 ? 0x16a34a : 0x15803d, 1);
-        bg.fillRect(0, y, GAME_WIDTH, 50);
-    }
-    return bg;
-}
-
-// ============================================================
-// ESCENA: MENÚ INICIAL
-// ============================================================
-class MenuScene extends Phaser.Scene {
-    constructor() { super('MenuScene'); }
-
-    preload() {
-        generarTexturasComunes(this);
-        generarSkinsCucurella(this);
-    }
-
-    create() {
-        dibujarFondoEstadio(this);
-
-        let overlay = this.add.graphics();
-        overlay.fillStyle(0x000000, 0.45); overlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-        this.add.text(GAME_WIDTH / 2, 96, 'CUCU-RUN', {
-            fontSize: '38px', fill: '#facc15', fontFamily: 'Arial Black', stroke: '#000000', strokeThickness: 6
-        }).setOrigin(0.5);
-
-        this.add.text(GAME_WIDTH / 2, 134, '⚽ el runner futbolero ⚽', {
-            fontSize: '13px', fill: '#e2e8f0', fontStyle: 'bold'
-        }).setOrigin(0.5);
-
-        let highScore = obtenerHighScore();
-        this.add.text(GAME_WIDTH / 2, 165, 'Mejor puntuación: ' + formatNum(highScore), {
-            fontSize: '14px', fill: '#38bdf8', fontStyle: 'bold'
-        }).setOrigin(0.5);
-
-        // --- Panel de misiones diarias ---
-        let panel = this.add.graphics();
-        panel.fillStyle(0x0f172a, 0.85); panel.fillRoundedRect(30, 188, GAME_WIDTH - 60, 78, 10);
-        panel.lineStyle(1, 0x334155, 1); panel.strokeRoundedRect(30, 188, GAME_WIDTH - 60, 78, 10);
-
-        this.add.text(GAME_WIDTH / 2, 200, '🎯 MISIONES DE HOY', {
-            fontSize: '12px', fill: '#facc15', fontStyle: 'bold'
-        }).setOrigin(0.5, 0);
-
-        let misionesHoy = misionesDeHoy();
-        let datosMision = obtenerProgresoMisiones();
-        misionesHoy.forEach((m, i) => {
-            let progreso = Math.min(datosMision.progreso[m.id] || 0, m.target);
-            let completada = datosMision.completadas.includes(m.id);
-            let texto = (completada ? '✅ ' : '⬜ ') + m.desc.replace('{n}', formatNum(m.target)) +
-                '  (' + formatNum(progreso) + '/' + formatNum(m.target) + ')';
-            this.add.text(GAME_WIDTH / 2, 222 + i * 20, texto, {
-                fontSize: '11px', fill: completada ? '#4ade80' : '#cbd5e1'
-            }).setOrigin(0.5, 0);
-        });
-
-        let skinActual = TODAS_LAS_SKINS.find(s => s.id === obtenerSkinSeleccionada()) || SKINS[0];
-        this.add.image(GAME_WIDTH / 2, 335, 'cucurella_' + skinActual.id).setScale(1.1);
-        this.add.text(GAME_WIDTH / 2, 385, skinActual.nombre, {
-            fontSize: '13px', fill: '#facc15', fontStyle: 'bold'
-        }).setOrigin(0.5);
-
-        this.crearBoton(GAME_WIDTH / 2, 450, 220, 60, 0x16a34a, 0x22c55e, '▶  START', () => {
-            AudioFX.init(); AudioFX.click();
-            this.scene.start('MainScene');
-        });
-
-        this.crearBoton(GAME_WIDTH / 2, 530, 220, 60, 0xca8a04, 0xfacc15, '🛒  COMPRAR SKINS', () => {
-            AudioFX.init(); AudioFX.click();
-            this.scene.start('ShopScene');
-        }, '#1c1503');
-
-        this.add.text(GAME_WIDTH / 2, 610, '🛡️ escudo y 🧲 imán aparecen en las partidas\nCompleta misiones para ganar puntos extra', {
-            fontSize: '11px', fill: '#94a3b8', align: 'center'
-        }).setOrigin(0.5);
-    }
-
-    crearBoton(x, y, w, h, colorBase, colorBorde, texto, onClick, colorTexto) {
-        let g = this.add.graphics();
-        g.fillStyle(colorBase, 1); g.fillRoundedRect(x - w / 2, y - h / 2, w, h, 14);
-        g.lineStyle(3, colorBorde, 1); g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 14);
-
-        let t = this.add.text(x, y, texto, {
-            fontSize: '20px', fill: colorTexto || '#ffffff', fontFamily: 'Arial Black'
-        }).setOrigin(0.5);
-
-        let zona = this.add.zone(x, y, w, h).setInteractive({ useHandCursor: true });
-        zona.on('pointerdown', () => {
-            g.clear();
-            g.fillStyle(colorBorde, 1); g.fillRoundedRect(x - w / 2, y - h / 2, w, h, 14);
-            g.lineStyle(3, colorBase, 1); g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 14);
-            this.time.delayedCall(90, onClick);
-        });
-        return zona;
-    }
-}
-
-// ============================================================
-// ESCENA: TIENDA DE SKINS
-// ============================================================
-class ShopScene extends Phaser.Scene {
-    constructor() { super('ShopScene'); }
-
-    create() {
-        dibujarFondoEstadio(this);
-        let overlay = this.add.graphics();
-        overlay.fillStyle(0x000000, 0.55); overlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-        this.add.text(GAME_WIDTH / 2, 36, 'SKINS DISPONIBLES', {
-            fontSize: '22px', fill: '#facc15', fontFamily: 'Arial Black', stroke: '#000000', strokeThickness: 4
-        }).setOrigin(0.5);
-
-        let highScore = obtenerHighScore();
-        let skinEquipada = obtenerSkinSeleccionada();
-
-        this.add.text(GAME_WIDTH / 2, 64, 'Tu récord: ' + formatNum(highScore) + ' pts', {
-            fontSize: '13px', fill: '#38bdf8', fontStyle: 'bold'
-        }).setOrigin(0.5);
-
-        this.add.text(GAME_WIDTH / 2, 88, '🔒 por puntos      💳 edición premium', {
-            fontSize: '11px', fill: '#94a3b8'
-        }).setOrigin(0.5);
-
-        // --- Cuadrícula 2x4 con todas las skins (por puntos + premium) ---
-        let items = SKINS.map(s => ({ skin: s, tipo: 'puntos' }))
-            .concat(PREMIUM_SKINS.map(s => ({ skin: s, tipo: 'premium' })));
-
-        let cols = 2, cardW = 176, cardH = 118, gapY = 10, yTop = 112;
-        let centrosX = [106, 294];
-
-        items.forEach((entrada, i) => {
-            let skin = entrada.skin;
-            let fila = Math.floor(i / cols), col = i % cols;
-            let cx = centrosX[col];
-            let cy = yTop + fila * (cardH + gapY) + cardH / 2;
-
-            let equipada = skin.id === skinEquipada;
-            let desbloqueada, estadoTexto, colorBorde, onTap;
-
-            if (entrada.tipo === 'puntos') {
-                desbloqueada = highScore >= skin.umbral;
-                colorBorde = 0x334155;
-                if (equipada) estadoTexto = '✓ EQUIPADO';
-                else if (desbloqueada) estadoTexto = 'Toca para\nequipar';
-                else estadoTexto = '🔒 ' + formatNum(skin.umbral) + ' pts';
-
-                onTap = () => {
-                    AudioFX.init();
-                    if (!desbloqueada) {
-                        AudioFX.denegado();
-                        this.cameras.main.shake(100, 0.006);
-                        return;
-                    }
-                    if (!equipada) {
-                        AudioFX.click();
-                        guardarSkinSeleccionada(skin.id);
-                        this.scene.restart();
-                    }
-                };
-            } else {
-                desbloqueada = skinPremiumComprada(skin.id);
-                colorBorde = 0x9333ea;
-                if (equipada) estadoTexto = '✓ EQUIPADO';
-                else if (desbloqueada) estadoTexto = 'Toca para\nequipar';
-                else estadoTexto = '💳 ' + skin.precio;
-
-                onTap = () => {
-                    if (!desbloqueada) { simularCompra(this, skin); return; }
-                    if (!equipada) {
-                        AudioFX.init(); AudioFX.click();
-                        guardarSkinSeleccionada(skin.id);
-                        this.scene.restart();
-                    }
-                };
-            }
-
-            this.crearTarjetaSkin(skin, cx, cy, cardW, cardH, desbloqueada, equipada, estadoTexto, colorBorde, onTap);
-        });
-
-        let filas = Math.ceil(items.length / cols);
-        let yBoton = yTop + filas * (cardH + gapY) + 32;
-        this.crearBoton(GAME_WIDTH / 2, yBoton, 200, 50, 0x334155, 0x64748b, '←  MENÚ', () => {
-            AudioFX.init(); AudioFX.click();
-            this.scene.start('MenuScene');
-        });
-    }
-
-    crearTarjetaSkin(skin, cx, cy, w, h, desbloqueada, equipada, estadoTexto, colorBorde, onTap) {
-        let fondo = this.add.graphics();
-        let colorFondo = equipada ? 0x14532d : (desbloqueada ? 0x1e293b : 0x18102b);
-        fondo.fillStyle(colorFondo, 0.92); fondo.fillRoundedRect(cx - w / 2, cy - h / 2, w, h, 10);
-        fondo.lineStyle(equipada ? 3 : (desbloqueada ? 1 : 2), equipada ? 0xfacc15 : colorBorde, 1);
-        fondo.strokeRoundedRect(cx - w / 2, cy - h / 2, w, h, 10);
-
-        let icono = this.add.image(cx, cy - 30, 'cucurella_' + skin.id).setScale(0.48);
-        if (!desbloqueada) icono.setTint(0x3a3a3a);
-
-        this.add.text(cx, cy + 4, skin.nombre, {
-            fontSize: '13px', fill: desbloqueada ? '#ffffff' : '#9ca3af', fontFamily: 'Arial Black', align: 'center'
-        }).setOrigin(0.5);
-
-        this.add.text(cx, cy + 32, estadoTexto, {
-            fontSize: '10px',
-            fill: equipada ? '#4ade80' : (desbloqueada ? '#facc15' : '#c4b5fd'),
-            fontStyle: 'bold', align: 'center'
-        }).setOrigin(0.5);
-
-        let zona = this.add.zone(cx, cy, w, h).setInteractive({ useHandCursor: true });
-        zona.on('pointerdown', onTap);
-    }
-
-    crearBoton(x, y, w, h, colorBase, colorBorde, texto, onClick) {
-        let g = this.add.graphics();
-        g.fillStyle(colorBase, 1); g.fillRoundedRect(x - w / 2, y - h / 2, w, h, 12);
-        g.lineStyle(3, colorBorde, 1); g.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 12);
-        this.add.text(x, y, texto, { fontSize: '18px', fill: '#ffffff', fontFamily: 'Arial Black' }).setOrigin(0.5);
-
-        let zona = this.add.zone(x, y, w, h).setInteractive({ useHandCursor: true });
-        zona.on('pointerdown', () => this.time.delayedCall(80, onClick));
-    }
-}
-
-// ============================================================
-// ESCENA: JUEGO PRINCIPAL
-// ============================================================
-let cucurella, suelo, obstaculos, coleccionables;
-let timerObstaculos, timerColeccionables, timerDificultad, timerSegundos;
-let score = 0, highScore = 0, contadorCopas = 0;
-let modoFiesta = false, lucesFiesta;
-let textoPuntos, textoBest, textoNivel, textoCopas, textoSuperCucu, tweenSuperCucu;
-let gameOver = false;
-let saltosRestantes = 2;
-let velocidadObstaculos = 280, velocidadColeccionables = 230, retrasoSpawns = 1650, multiplicadorVelocidad = 1.0;
-let proximaSkinPorDesbloquear = null;
-let actualizandoMarcador = false;
-let segundosTranscurridos = 0;
-let tieneEscudo = false, iconoEscudo;
-let imanActivo = false, iconoIman;
-
-class MainScene extends Phaser.Scene {
-    constructor() { super('MainScene'); }
-
-    preload() {
-        highScore = obtenerHighScore();
-        generarTexturasComunes(this);
-        generarSkinsCucurella(this);
-    }
-
-    create() {
-        highScore = obtenerHighScore();
-
-        score = 0;
-        contadorCopas = 0;
-        modoFiesta = false;
-        gameOver = false;
-        saltosRestantes = 2;
-        velocidadObstaculos = 280;
-        velocidadColeccionables = 230;
-        retrasoSpawns = 1650;
-        multiplicadorVelocidad = 1.0;
-        proximaSkinPorDesbloquear = siguienteSkinBloqueada(highScore);
-        actualizandoMarcador = false;
-        segundosTranscurridos = 0;
-        tieneEscudo = false;
-        imanActivo = false;
-
-        dibujarFondoEstadio(this);
-        lucesFiesta = this.add.graphics().setDepth(10).setVisible(false);
-
-        suelo = this.physics.add.staticGroup();
-        suelo.create(GAME_WIDTH / 2, GAME_HEIGHT - 35, 'suelo').setDisplaySize(GAME_WIDTH, 70).refreshBody();
-
-        let skinId = obtenerSkinSeleccionada();
-        if (!this.textures.exists('cucurella_' + skinId)) skinId = 'default';
-        cucurella = this.physics.add.sprite(80, GAME_HEIGHT - 120, 'cucurella_' + skinId);
-        cucurella.setCollideWorldBounds(true);
-        cucurella.body.setSize(30, 62); cucurella.body.setOffset(17, 18);
-
-        this.physics.add.collider(cucurella, suelo, () => { saltosRestantes = 2; });
-
-        obstaculos = this.physics.add.group();
-        coleccionables = this.physics.add.group();
-
-        this.physics.add.overlap(cucurella, obstaculos, chocar, null, this);
-        this.physics.add.overlap(cucurella, coleccionables, recogerColeccionable, null, this);
-
-        let marco = this.add.graphics();
-        marco.fillStyle(0x020617, 0.9); marco.fillRoundedRect(16, 16, 260, 68, 12);
-        marco.lineStyle(3, 0xfacc15, 1); marco.strokeRoundedRect(16, 16, 260, 68, 12);
-
-        textoPuntos = this.add.text(28, 22, 'PTS: 0000', { fontSize: '18px', fill: '#ffe600', fontFamily: 'Arial Black' });
-        textoBest = this.add.text(150, 22, 'BEST: ' + highScore.toString().padStart(4, '0'), { fontSize: '13px', fill: '#38bdf8', fontStyle: 'bold' });
-        textoNivel = this.add.text(28, 52, 'VEL: x1.0', { fontSize: '12px', fill: '#a855f7', fontStyle: 'bold' });
-        textoCopas = this.add.text(150, 52, '🏆 0/5', { fontSize: '12px', fill: '#eab308', fontStyle: 'bold' });
-
-        let botonMenu = this.add.text(GAME_WIDTH - 20, 22, '☰', { fontSize: '22px', fill: '#ffffff' }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
-        botonMenu.on('pointerdown', (pointer, lx, ly, event) => {
-            event.stopPropagation();
-            this.scene.start('MenuScene');
-        });
-
-        textoSuperCucu = this.add.text(GAME_WIDTH / 2, 105, '¡¡SUPERCUCU!!', {
-            fontSize: '32px', fill: '#facc15', fontFamily: 'Arial Black', stroke: '#000000', strokeThickness: 6
-        }).setOrigin(0.5).setDepth(20).setVisible(false);
-
-        iconoEscudo = this.add.image(0, 0, 'escudo').setScale(0.5).setVisible(false).setDepth(15);
-        iconoIman = this.add.image(0, 0, 'iman').setScale(0.5).setVisible(false).setDepth(15);
-
-        this.input.on('pointerdown', () => {
-            AudioFX.init();
-            if (gameOver) return;
-
-            if (saltosRestantes > 0) {
-                cucurella.setVelocityY(-780);
-                saltosRestantes--;
-                AudioFX.salto();
-                generarEfectoHierba(cucurella.x, cucurella.y + 35, this);
-            }
-        });
-
-        timerObstaculos = this.time.addEvent({ delay: retrasoSpawns, callback: crearObstaculo, callbackScope: this, loop: true });
-        timerColeccionables = this.time.addEvent({ delay: 1900, callback: crearColeccionable, callbackScope: this, loop: true });
-        timerDificultad = this.time.addEvent({ delay: 9000, callback: incrementarDificultad, callbackScope: this, loop: true });
-        timerSegundos = this.time.addEvent({
-            delay: 1000, loop: true, callbackScope: this, callback: () => {
-                if (gameOver) return;
-                segundosTranscurridos++;
-                actualizarProgresoMisionMax('supervivencia', segundosTranscurridos, this);
-                actualizarMarcador(this);
-            }
-        });
-    }
-
-    update() {
-        if (gameOver) return;
-
-        if (modoFiesta) {
-            cucurella.setTint(Phaser.Math.Between(0x00ffff, 0xffffff));
-            lucesFiesta.clear();
-            lucesFiesta.fillStyle([0xff0055, 0x00ffff, 0xffe600, 0xa855f7][Math.floor(Math.random() * 4)], 0.18);
-            lucesFiesta.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-        } else if (cucurella.body.touching.down) {
-            cucurella.angle = Math.sin(this.time.now / 60) * 4;
-        } else {
-            cucurella.angle = 0;
-        }
-
-        obstaculos.getChildren().forEach(obs => {
-            obs.body.setVelocityX(-velocidadObstaculos);
-            if (obs.x < -60) { obs.destroy(); score += 50; actualizarMarcador(this); }
-        });
-
-        coleccionables.getChildren().forEach(c => {
-            if (imanActivo) {
-                let dx = cucurella.x - c.x, dy = cucurella.y - c.y;
-                let dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < 260) {
-                    c.body.setVelocity(dx * 4.5, dy * 4.5);
-                } else {
-                    c.body.setVelocityX(-velocidadColeccionables);
-                }
-            } else {
-                c.body.setVelocityX(-velocidadColeccionables);
-            }
-            if (c.x < -60) c.destroy();
-        });
-
-        if (tieneEscudo) {
-            iconoEscudo.setVisible(true).setPosition(cucurella.x, cucurella.y - 48);
-        } else {
-            iconoEscudo.setVisible(false);
-        }
-        if (imanActivo) {
-            iconoIman.setVisible(true).setPosition(cucurella.x, cucurella.y - (tieneEscudo ? 72 : 48));
-        } else {
-            iconoIman.setVisible(false);
-        }
-    }
-}
-
-function incrementarDificultad() {
-    if (gameOver) return;
-    if (velocidadObstaculos < 580) {
-        velocidadObstaculos += 12; velocidadColeccionables += 10; multiplicadorVelocidad += 0.05;
-        if (retrasoSpawns > 950) {
-            retrasoSpawns -= 30;
-            timerObstaculos.reset({ delay: retrasoSpawns, callback: crearObstaculo, callbackScope: this, loop: true });
-        }
-        textoNivel.setText('VEL: x' + multiplicadorVelocidad.toFixed(1));
-    }
-}
-
-function crearObstaculo() {
-    if (gameOver) return;
-    let rand = Math.random(), posY = GAME_HEIGHT - 104, tipoKey = 'arbitro';
-
-    if (rand > 0.40) {
-        const peinados = ['calvo', 'rubio', 'tupe', 'rizado'];
-        tipoKey = 'rival_' + peinados[Math.floor(Math.random() * peinados.length)];
-    }
-
-    let obs = obstaculos.create(GAME_WIDTH + 40, posY, tipoKey);
-    obs.body.setAllowGravity(false);
-    obs.body.setImmovable(true);
-    obs.body.setSize(30, 52);
-    obs.body.setOffset(9, 12);
-}
-
-function crearColeccionable() {
-    if (gameOver) return;
-    let rand = Math.random(), tipoKey = 'paella', puntos = 100;
-
-    if (rand > 0.96) { tipoKey = 'escudo'; puntos = 150; }
-    else if (rand > 0.91) { tipoKey = 'iman'; puntos = 150; }
-    else if (rand > 0.66) { tipoKey = 'copa'; puntos = 500; }
-    else if (rand > 0.35) { tipoKey = 'cerveza'; puntos = 200; }
-
-    let altura = (tipoKey === 'copa')
-        ? Phaser.Math.Between(GAME_HEIGHT - 280, GAME_HEIGHT - 200)
-        : Phaser.Math.Between(GAME_HEIGHT - 220, GAME_HEIGHT - 140);
-
-    let c = coleccionables.create(GAME_WIDTH + 40, altura, tipoKey);
-    c.body.setAllowGravity(false);
-    c.puntosExtra = puntos;
-    c.tipo = tipoKey;
-    c.esCopa = (tipoKey === 'copa');
-}
-
-function recogerColeccionable(player, item) {
-    score += item.puntosExtra;
-    AudioFX.item();
-    mostrarTextoFlotante('+' + item.puntosExtra, item.x, item.y, this);
-
-    if (item.tipo === 'paella') incrementarProgresoMision('paellas', 1, this);
-    else if (item.tipo === 'cerveza') incrementarProgresoMision('cervezas', 1, this);
-    else if (item.tipo === 'escudo') {
-        tieneEscudo = true;
-        mostrarTextoFlotante('¡ESCUDO!', item.x, item.y - 30, this);
-    } else if (item.tipo === 'iman') {
-        imanActivo = true;
-        mostrarTextoFlotante('¡IMÁN!', item.x, item.y - 30, this);
-        this.time.delayedCall(6000, () => { imanActivo = false; });
-    }
-
-    if (item.esCopa && !modoFiesta) {
-        contadorCopas++;
-        textoCopas.setText('🏆 ' + contadorCopas + '/5');
-        if (contadorCopas >= 5) activarModoFiesta(this);
-    }
-
-    actualizarMarcador(this);
-    item.destroy();
-}
-
-function activarModoFiesta(scene) {
-    modoFiesta = true; contadorCopas = 0; textoCopas.setText('🏆 ¡MAX!');
-    lucesFiesta.setVisible(true); AudioFX.powerUp();
-
-    textoSuperCucu.setVisible(true).setScale(0.2).setAlpha(1);
-    scene.tweens.add({
-        targets: textoSuperCucu, scaleX: 1, scaleY: 1, duration: 400, ease: 'Back.easeOut',
-        onComplete: () => {
-            tweenSuperCucu = scene.tweens.add({ targets: textoSuperCucu, y: 115, duration: 400, yoyo: true, loop: -1, ease: 'Sine.easeInOut' });
-        }
-    });
-
-    scene.time.delayedCall(7000, () => {
-        modoFiesta = false; cucurella.clearTint(); lucesFiesta.setVisible(false).clear(); textoCopas.setText('🏆 0/5');
-        if (tweenSuperCucu) tweenSuperCucu.stop();
-        scene.tweens.add({ targets: textoSuperCucu, alpha: 0, duration: 300, onComplete: () => { textoSuperCucu.setVisible(false).setY(105); } });
-    });
-}
-
-function actualizarMarcador(scene) {
-    if (actualizandoMarcador) return;
-    actualizandoMarcador = true;
-
-    actualizarProgresoMisionMax('puntuacion', score, scene);
-
-    textoPuntos.setText('PTS: ' + score.toString().padStart(4, '0'));
-    if (score > highScore) {
-        highScore = score;
-        guardarHighScore(highScore);
-        textoBest.setText('BEST: ' + highScore.toString().padStart(4, '0'));
-    }
-
-    while (proximaSkinPorDesbloquear && score >= proximaSkinPorDesbloquear.umbral) {
-        let skinGanada = proximaSkinPorDesbloquear;
-        if (scene) {
-            let aviso = scene.add.text(GAME_WIDTH / 2, 250, '¡NUEVA CAMISETA!\n' + skinGanada.nombre, {
-                fontSize: '20px', fill: '#facc15', fontFamily: 'Arial Black', stroke: '#000000', strokeThickness: 5, align: 'center'
-            }).setOrigin(0.5).setDepth(30).setAlpha(0).setScale(0.5);
-            scene.tweens.add({ targets: aviso, alpha: 1, scale: 1, duration: 300, ease: 'Back.easeOut' });
-            scene.tweens.add({ targets: aviso, alpha: 0, delay: 1600, duration: 400, onComplete: () => aviso.destroy() });
-            AudioFX.powerUp();
-        }
-        proximaSkinPorDesbloquear = siguienteSkinBloqueada(highScore >= skinGanada.umbral ? highScore : skinGanada.umbral);
-    }
-
-    actualizandoMarcador = false;
-}
-
-function generarEfectoHierba(x, y, scene) {
-    for (let i = 0; i < 5; i++) {
-        let p = scene.add.image(x, y, 'p_hierba');
-        scene.tweens.add({ targets: p, x: x + Phaser.Math.Between(-35, 10), y: y + Phaser.Math.Between(-20, -5), alpha: 0, duration: 300, onComplete: () => p.destroy() });
-    }
-}
-
-function mostrarTextoFlotante(str, x, y, scene) {
-    let txt = scene.add.text(x, y, str, { fontSize: '20px', fill: '#facc15', fontFamily: 'Arial Black', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
-    scene.tweens.add({ targets: txt, y: y - 45, alpha: 0, duration: 700, onComplete: () => txt.destroy() });
-}
-
-function chocar(player, obstaculo) {
-    if (modoFiesta) {
-        score += 100; AudioFX.item();
-        mostrarTextoFlotante('¡DESTRUIDO! +100', obstaculo.x, obstaculo.y, this);
-        obstaculo.destroy(); actualizarMarcador(this); return;
-    }
-
-    if (gameOver) return;
-
-    if (tieneEscudo) {
-        tieneEscudo = false;
-        AudioFX.powerUp();
-        mostrarTextoFlotante('¡ESCUDO USADO!', obstaculo.x, obstaculo.y, this);
-        obstaculo.destroy();
-        cucurella.setTint(0x93c5fd);
-        this.time.delayedCall(250, () => { if (!gameOver && !modoFiesta) cucurella.clearTint(); });
-        return;
-    }
-
-    gameOver = true;
-
-    this.physics.pause();
-    cucurella.setTint(0xff3333);
-    AudioFX.pitido();
-
-    if (timerObstaculos) timerObstaculos.destroy();
-    if (timerColeccionables) timerColeccionables.destroy();
-    if (timerDificultad) timerDificultad.destroy();
-    if (timerSegundos) timerSegundos.destroy();
-
-    let cartel = this.add.graphics().setDepth(200);
-    cartel.fillStyle(0x0f172a, 0.95); cartel.fillRoundedRect(GAME_WIDTH/2 - 140, GAME_HEIGHT/2 - 110, 280, 220, 16);
-    cartel.lineStyle(3, 0xef4444, 1); cartel.strokeRoundedRect(GAME_WIDTH/2 - 140, GAME_HEIGHT/2 - 110, 280, 220, 16);
-
-    let esNuevoRecord = score >= highScore && score > 0;
-    let mensajeRecord = esNuevoRecord ? '\n¡NUEVO RÉCORD!' : '\nRécord: ' + highScore;
-
-    this.add.text(GAME_WIDTH/2, GAME_HEIGHT/2 - 5, '¡TARJETA ROJA!\n\nScore: ' + score + mensajeRecord + '\n\n[Toca para Reiniciar]', {
-        fontSize: '16px', fill: '#ffffff', align: 'center', fontStyle: 'bold'
-    }).setOrigin(0.5).setDepth(201);
-
-    const ejecutarReinicio = (e) => {
-        e.preventDefault();
-        window.removeEventListener('pointerdown', ejecutarReinicio);
-        window.removeEventListener('touchstart', ejecutarReinicio);
-        this.scene.restart();
-    };
+    setShooter();
 
     setTimeout(() => {
-        window.addEventListener('pointerdown', ejecutarReinicio);
-        window.addEventListener('touchstart', ejecutarReinicio);
-    }, 100);
+
+        preparePenalty();
+
+    },500);
 }
 
-const config = {
-    type: Phaser.AUTO,
-    width: GAME_WIDTH,
-    height: GAME_HEIGHT,
-    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-    physics: { default: 'arcade', arcade: { gravity: { y: 2200 }, debug: false } },
-    scene: [MenuScene, ShopScene, MainScene]
-};
 
-const game = new Phaser.Game(config);
+/* ==========================================
+   HUD
+========================================== */
+
+function updateHUD(){
+
+    streakValue.textContent = streak;
+    bestValue.textContent = best;
+
+}
+
+
+/* ==========================================
+   PREPARAR PENALTI
+========================================== */
+
+function preparePenalty(){
+
+    acceptingInput = true;
+
+    resetKeeper();
+
+    ball.style.transition = "none";
+
+    ball.style.left = "50%";
+    ball.style.top = "58%";
+
+    ball.classList.remove("ballSave");
+
+    message.classList.remove("show");
+
+    setShooter();
+
+    /*
+       Aquí está una de las claves del juego.
+
+       El lanzamiento NO es completamente aleatorio.
+
+       A medida que aumenta la racha,
+       el lanzador se vuelve más difícil.
+    */
+
+    currentDirection = calculateShot();
+
+}
+
+
+/* ==========================================
+   CALCULAR LANZAMIENTO
+========================================== */
+
+function calculateShot(){
+
+    let difficulty = Math.min(streak / 30,1);
+
+    /*
+       Al principio:
+       - izquierda 35%
+       - centro 30%
+       - derecha 35%
+
+       Más adelante introducimos
+       comportamientos menos previsibles.
+    */
+
+    let r = Math.random();
+
+    if(r < 0.35){
+        return "left";
+    }
+
+    if(r < 0.65){
+        return "center";
+    }
+
+    return "right";
+
+}
+
+
+/* ==========================================
+   CAMBIAR LANZADOR
+========================================== */
+
+function setShooter(){
+
+    let index = Math.floor(Math.random() * shooters.length);
+
+    shooter.textContent = shooters[index];
+
+    let nameIndex = Math.floor(Math.random() * names.length);
+
+    shooterName.textContent = names[nameIndex];
+
+}
+
+
+/* ==========================================
+   ELEGIR DIRECCIÓN
+========================================== */
+
+function chooseDirection(direction){
+
+    if(!acceptingInput) return;
+
+    acceptingInput = false;
+
+    kickBall(currentDirection);
+
+    setTimeout(() => {
+
+        if(direction === currentDirection){
+
+            savePenalty();
+
+        }else{
+
+            goalScored();
+
+        }
+
+    },420);
+
+}
+
+
+/* ==========================================
+   LANZAMIENTO
+========================================== */
+
+function kickBall(direction){
+
+    let targetLeft = "50%";
+
+    if(direction === "left"){
+        targetLeft = "22%";
+    }
+
+    if(direction === "right"){
+        targetLeft = "78%";
+    }
+
+    let targetTop = "27%";
+
+    if(direction === "center"){
+        targetLeft = "50%";
+        targetTop = "28%";
+    }
+
+    ball.style.transition =
+        "left .42s cubic-bezier(.2,.8,.3,1), top .42s ease, transform .42s ease";
+
+    ball.style.left = targetLeft;
+    ball.style.top = targetTop;
+
+    ball.style.transform =
+        "translate(-50%,-50%) scale(.75)";
+
+}
+
+
+/* ==========================================
+   PARADA
+========================================== */
+
+function savePenalty(){
+
+    streak++;
+
+    if(streak > best){
+
+        best = streak;
+
+        localStorage.setItem(
+            "penaltyBest",
+            best
+        );
+
+    }
+
+    updateHUD();
+
+    keeper.style.transition =
+        "left .28s cubic-bezier(.2,.9,.3,1), transform .28s";
+
+    if(currentDirection === "left"){
+
+        keeper.style.left = "20%";
+        keeper.style.transform =
+            "translateX(-50%) rotate(-25deg)";
+
+    }
+
+    if(currentDirection === "right"){
+
+        keeper.style.left = "80%";
+        keeper.style.transform =
+            "translateX(-50%) rotate(25deg)";
+
+    }
+
+    if(currentDirection === "center"){
+
+        keeper.style.left = "50%";
+        keeper.style.transform =
+            "translateX(-50%) scale(1.1)";
+
+    }
+
+    ball.classList.add("ballSave");
+
+    showMessage(
+        getSaveMessage(),
+        true
+    );
+
+    if(navigator.vibrate){
+
+        navigator.vibrate(50);
+
+    }
+
+    setTimeout(() => {
+
+        preparePenalty();
+
+    },900);
+
+}
+
+
+/* ==========================================
+   MENSAJES
+========================================== */
+
+function getSaveMessage(){
+
+    if(streak >= 30){
+        return "👑 ¡LEYENDA!";
+    }
+
+    if(streak >= 20){
+        return "🔥 ¡IMPARABLE!";
+    }
+
+    if(streak >= 10){
+        return "🧤 ¡PARADÓN!";
+    }
+
+    if(streak >= 5){
+        return "🔥 ¡GRAN PARADA!";
+    }
+
+    return "🧤 ¡PARADA!";
+
+}
+
+
+/* ==========================================
+   GOL
+========================================== */
+
+function goalScored(){
+
+    showMessage(
+        "⚽ ¡GOL!",
+        false
+    );
+
+    field.classList.add("shake");
+
+    if(navigator.vibrate){
+
+        navigator.vibrate([80,40,80]);
+
+    }
+
+    setTimeout(() => {
+
+        field.classList.remove("shake");
+
+        endGame();
+
+    },800);
+
+}
+
+
+/* ==========================================
+   MENSAJE
+========================================== */
+
+function showMessage(text,success){
+
+    message.textContent = text;
+
+    message.style.color =
+        success ? "#6dff9e" : "#ff6464";
+
+    message.classList.remove("show");
+
+    void message.offsetWidth;
+
+    message.classList.add("show");
+
+}
+
+
+/* ==========================================
+   FINAL
+========================================== */
+
+function endGame(){
+
+    acceptingInput = false;
+
+    document.getElementById("finalScore").textContent =
+        streak;
+
+    if(streak === best && streak > 0){
+
+        document.getElementById("newRecord")
+            .classList.remove("hidden");
+
+    }else{
+
+        document.getElementById("newRecord")
+            .classList.add("hidden");
+
+    }
+
+    gameOver.style.display = "flex";
+
+}
+
+
+/* ==========================================
+   RESET PORTERO
+========================================== */
+
+function resetKeeper(){
+
+    keeper.style.transition = "none";
+
+    keeper.style.left = "50%";
+
+    keeper.style.top = "25%";
+
+    keeper.style.transform =
+        "translateX(-50%)";
+
+}
+
+
+/* ==========================================
+   CONTROL POR DESLIZAMIENTO
+========================================== */
+
+document.addEventListener(
+    "touchstart",
+    function(e){
+
+        if(!acceptingInput) return;
+
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+
+    },
+    {passive:true}
+);
+
+
+document.addEventListener(
+    "touchend",
+    function(e){
+
+        if(!acceptingInput) return;
+
+        let endX = e.changedTouches[0].clientX;
+        let endY = e.changedTouches[0].clientY;
+
+        let dx = endX - touchStartX;
+        let dy = endY - touchStartY;
+
+        /*
+           Si el movimiento es pequeño,
+           utilizamos la posición donde
+           tocó el usuario.
+        */
+
+        if(Math.abs(dx) < 25 && Math.abs(dy) < 25){
+
+            let width = window.innerWidth;
+
+            if(endX < width / 3){
+
+                chooseDirection("left");
+
+            }else if(endX > width * 2 / 3){
+
+                chooseDirection("right");
+
+            }else{
+
+                chooseDirection("center");
+
+            }
+
+            return;
+        }
+
+        /*
+           Si desliza:
+           izquierda / derecha / arriba
+        */
+
+        if(Math.abs(dx) > Math.abs(dy)){
+
+            if(dx < 0){
+
+                chooseDirection("left");
+
+            }else{
+
+                chooseDirection("right");
+
+            }
+
+        }else{
+
+            chooseDirection("center");
+
+        }
+
+    },
+    {passive:true}
+);
+
+
+/* ==========================================
+   TECLADO
+========================================== */
+
+document.addEventListener(
+    "keydown",
+    function(e){
+
+        if(e.key === "ArrowLeft"){
+
+            chooseDirection("left");
+
+        }
+
+        if(e.key === "ArrowUp"){
+
+            chooseDirection("center");
+
+        }
+
+        if(e.key === "ArrowRight"){
+
+            chooseDirection("right");
+
+        }
+
+    }
+);
+
 </script>
 
 </body>
